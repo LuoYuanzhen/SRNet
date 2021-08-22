@@ -1,22 +1,15 @@
 import torch
 
 from dataset_config import FUNC_MAP, ELITE_MAP, VALID_MAP, INTER_MAP
-from data_utils import io, draw
-from exp_utils import encode_individual_from_json_v2, draw_hidden_heat_compare_img, draw_decision_bound, \
-    encode_individual_from_json, draw_output_compare_curves, draw_project_output_scatter
+from data_utils import io
+from exp_utils import encode_individual_from_json, draw_hidden_heat_compare_img, draw_decision_bound, \
+    draw_output_compare_curves, draw_project_output_scatter
 from neural_networks.nn_models import NN_MAP
-
-ENCODE_VERSION = 'v2'
 
 
 def _encode_individual(json_file, which):
     """higher level encode method"""
-    if ENCODE_VERSION == 'v1':
-        individual = encode_individual_from_json(json_file, which)
-    elif ENCODE_VERSION == 'v2':
-        individual = encode_individual_from_json_v2(json_file, which)
-    else:
-        raise ValueError('WRONG VERSION')
+    individual = encode_individual_from_json(json_file, which)
     return individual
 
 
@@ -52,8 +45,8 @@ def output_curves():
     """draw the output curves, note that every variable x woule be the same as x[0]"""
     dir = '../dataset/'
     filename = 'kkk1'
-    json_file = f'/home/luoyuanzhen/result/log_chrom_v2/{filename}_30log.json'
-    img_dir = '/home/luoyuanzhen/result/img_chrom_v2/'
+    json_file = f'/home/luoyuanzhen/result/log_extra/{filename}_30log.json'
+    img_dir = '/home/luoyuanzhen/result/img_extra/'
 
     nn_dir = f"{dir}{filename}_nn/"
 
@@ -61,7 +54,7 @@ def output_curves():
     n_var = true_inner.shape[1] - 1
 
     x0_range = VALID_MAP[filename][0]
-    x_min, x_max = INTER_MAP[filename][0]
+    inter_range = INTER_MAP[filename][0]
     x = torch.linspace(x0_range[0], x0_range[1], 1000).unsqueeze(1)
     x = x.repeat(1, n_var)
     x, _ = torch.sort(x, dim=0)
@@ -77,8 +70,10 @@ def output_curves():
         which = f'elite[{num}]'
         individual = _encode_individual(json_file, which)
         srnn_output = individual(x)[-1].detach()
-        draw_output_compare_curves(x[:, 0], nn_output, srnn_output, true_output,
-                                   x_min, x_max,
+        ys = [true_output, nn_output, srnn_output]
+        labels = ['True', 'MLP', 'CGPNet']
+        draw_output_compare_curves(x[:, 0], ys, labels,
+                                   inter_range=inter_range,
                                    n_var=n_var,
                                    title=f'{filename}',
                                    savepath=f'{img_dir}{filename}_curves_{which}.pdf')
@@ -86,9 +81,9 @@ def output_curves():
 
 def output_curves_interpolate():
     dir = '../dataset/'
-    filename = 'kkk0'
-    json_file = f'/home/luoyuanzhen/result/log_chrom_v2/{filename}_30log.json'
-    img_dir = '/home/luoyuanzhen/result/img_v3/'
+    filename = 'kkk1'
+    json_file = f'/home/luoyuanzhen/result/log_extra/{filename}_30log.json'
+    img_dir = '/home/luoyuanzhen/result/img_extra/'
 
     nn_dir = f"{dir}{filename}_nn/"
 
@@ -96,8 +91,7 @@ def output_curves_interpolate():
     n_var = true_inner.shape[1] - 1
 
     x0_range = INTER_MAP[filename][0]
-    x_min, x_max = x0_range[0], x0_range[1]
-    x = torch.linspace(x_min, x_max, 1000).unsqueeze(1)
+    x = torch.linspace(x0_range[0], x0_range[1], 1000).unsqueeze(1)
     x = x.repeat(1, n_var)
     x, _ = torch.sort(x, dim=0)
 
@@ -107,26 +101,21 @@ def output_curves_interpolate():
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     nn_output = nn(x)[-1].detach()
 
-    if n_var == 1:
-        xlabel = 'x'
-    else:
-        xlabel = 'x0'
-        for i in range(1, n_var):
-            xlabel = xlabel + f'=x{i}'
     # top 10
     for num in range(10):
         which = f'elite[{num}]'
         individual = _encode_individual(json_file, which)
         srnn_output = individual(x)[-1].detach()
-
-        draw.draw_mul_curves_and_save(x[:, 0], [true_output, nn_output, srnn_output], labels=['True', 'MLP', 'CGPNet'],
-                                      xlabel=xlabel, ylabel='y')
+        ys = [true_output, nn_output, srnn_output]
+        labels = ['True', 'MLP', 'CGPNet']
+        draw_output_compare_curves(x[:, 0], ys, labels,
+                                   n_var=n_var)
 
 
 def project_output_scatter():
     dir = '../dataset/'
-    filename = 'kkk0'
-    json_file = f'/home/luoyuanzhen/result/log_chrom_v2/{filename}_30log.json'
+    filename = 'kkk1'
+    json_file = f'/home/luoyuanzhen/result/log_extra/{filename}_30log.json'
     img_dir = '/home/luoyuanzhen/result/img/'
 
     which = 'elite[0]'
@@ -134,10 +123,10 @@ def project_output_scatter():
 
     x_inner = io.get_dataset(f'{dir}{filename}_nn/input')
 
-    x_range, inter_range = VALID_MAP[filename], INTER_MAP[filename]
+    x_range, inter_ranges = VALID_MAP[filename], INTER_MAP[filename]
     n_sample = x_inner.shape[0]
     x = []
-    for i, ranges in enumerate(zip(x_range, inter_range)):
+    for i, ranges in enumerate(zip(x_range, inter_ranges)):
         inter, extra = ranges
         xi_left = (inter[0] - extra[0]) * torch.rand(n_sample//2, 1) + extra[0]
         xi_right = (extra[1] - inter[1]) * torch.rand(n_sample//2, 1) + inter[1]
@@ -155,13 +144,13 @@ def project_output_scatter():
     true_output = func(*[x[:, i] for i in range(n_var)])
     nn_output = nn(x)[-1].detach()
 
-    draw_project_output_scatter(x, [true_output, nn_output, srnn_output], ['True', 'MLP', 'CGPNet'], inter_range)
+    draw_project_output_scatter(x, [true_output, nn_output, srnn_output], ['True', 'MLP', 'CGPNet'], inter_ranges)
 
 
 def project_output_scatter_interpolate():
     dir = '../dataset/'
-    filename = 'kkk4'
-    json_file = f'/home/luoyuanzhen/result/log_v2/{filename}_30log.json'
+    filename = 'kkk1'
+    json_file = f'/home/luoyuanzhen/result/log_extra/{filename}_30log.json'
     img_dir = '/home/luoyuanzhen/result/img/'
 
     nn_dir = f"{dir}{filename}_nn/"
@@ -181,9 +170,9 @@ def project_output_scatter_interpolate():
         individual = _encode_individual(json_file, which)
         srnn_output = individual(x)[-1].detach()
 
-        zs = (nn_output, true_output, srnn_output)
+        ys = [nn_output, true_output, srnn_output]
         labels = ['True', 'MLP', 'CGPNet']
-        draw.project_to_2d_and_save(vars, zs, zs_legends=labels)
+        draw_project_output_scatter(x, ys, labels)
 
 
 def classifier_decisions_bounds():
@@ -193,7 +182,7 @@ def classifier_decisions_bounds():
     json_file = f'/home/luoyuanzhen/result/single_log_v3/{filename}_30log.json'
     which = 'elite[0]'
 
-    individual = encode_individual_from_json_v2(json_file, which)
+    individual = encode_individual_from_json(json_file, which)
     draw_decision_bound(dir, filename, individual, from_pmlb=False)
 
 
@@ -209,10 +198,10 @@ def test():
 
 if __name__ == '__main__':
     # hidden_heat_map()
-    output_curves()
+    # output_curves()
     # output_curves_interpolate()
     # project_output_scatter()
-    # project_output_scatter_interpolate()
+    project_output_scatter_interpolate()
     # test()
 
 

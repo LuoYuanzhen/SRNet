@@ -129,15 +129,14 @@ def draw_hidden_heat_compare_img(filename, nndatas, srnndatas, title=""):
         plt.show()
 
 
-def draw_output_compare_curves(x, n_o, sn_o, t_o, x_min, x_max, n_var, savepath=None, title=None, var_names=None):
-    ys = [t_o, n_o, sn_o]
-    labels = ['True', 'MLP', 'CGPNet']
+def draw_output_compare_curves(x, ys, labels, n_var, inter_range=None, savepath=None, title=None, var_names=None):
     fig, ax = plt.subplots()
 
     for y, lb in zip(ys, labels):
-        ax.plot(x.view(-1), y.view(-1), label=lb)
+        ax.plot(x.reshape(-1), y.reshape(-1), label=lb)
 
-    ax.vlines([x_min, x_max], ymin=plt.ylim()[0], ymax=plt.ylim()[1], linestyles='dashdot')
+    if inter_range is not None:
+        ax.vlines([inter_range[0], inter_range[1]], ymin=plt.ylim()[0], ymax=plt.ylim()[1], linestyles='dashdot')
 
     if var_names is None:
         if n_var == 1:
@@ -164,7 +163,7 @@ def draw_output_compare_curves(x, n_o, sn_o, t_o, x_min, x_max, n_var, savepath=
     plt.show()
 
 
-def draw_project_output_scatter(x, ys, labels, x_range, savepath=None, title=None):
+def draw_project_output_scatter(x, ys, labels, inter_ranges=None, savepath=None, title=None):
     fig = plt.figure()
     n_var = x.shape[1]
     if n_var == 2:
@@ -183,9 +182,12 @@ def draw_project_output_scatter(x, ys, labels, x_range, savepath=None, title=Non
     for i in range(begin, end):
         ax2d = fig.add_subplot(n_row, n_col, i)
         for z, legend in zip(ys, labels):
-            ax2d.scatter(x[:, var_idx], z.view(-1), label=legend, s=0.1)
-        x_min, x_max = x_range[var_idx]
-        ax2d.vlines([x_min, x_max], ymin=plt.ylim()[0], ymax=plt.ylim()[1], linestyles='dashdot')
+            ax2d.scatter(x[:, var_idx], z.reshape(-1), label=legend, s=0.1)
+
+        if inter_ranges is not None:
+            x_min, x_max = inter_ranges[var_idx]
+            ax2d.vlines([x_min, x_max], ymin=plt.ylim()[0], ymax=plt.ylim()[1], linestyles='dashdot')
+
         if n_var % 2 > 0 and i > begin:
             ax2d.set_yticks(())
         elif n_var % 2 == 0 and i % 2 == 0:
@@ -278,30 +280,7 @@ def individual_to_dict(indiv, var_names=None):
     return indiv_dict
 
 
-def encode_individual(params, genes_list, ephs_list, W_list):
-    # nps = NetParameters(neurons=params['neurons'],
-    #                     n_rows=params['n_rows'],
-    #                     n_cols=params['n_cols'],
-    #                     function_set=params['function_set'],
-    #                     n_eph=params['n_eph'],
-    #                     levels_back=101)
-    # indiv = DCGPNetWIndividual.encode_individual(nps, genes_list, ephs_list, W_list)
-    # return indiv
-    pass
-
-
 def encode_individual_from_json(json_file, elite_name):
-    with open(json_file, 'r') as f:
-        records = json.load(f)
-
-    net_params = records['net_parameters']
-    indiv_dict = records[elite_name]
-
-    genes, ephs, Ws = indiv_dict['genes'], indiv_dict['constants'], indiv_dict['weights']
-    return encode_individual(net_params, genes, ephs, Ws)
-
-
-def encode_individual_from_json_v2(json_file, elite_name):
     with open(json_file, 'r') as f:
         records = json.load(f)
 
