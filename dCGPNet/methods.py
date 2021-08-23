@@ -261,13 +261,13 @@ class Evolution:
 
         return fitness
 
-    def _evaluate_fitness(self, pop, data_list, extra_data_list):
-        if extra_data_list is None:
+    def _evaluate_fitness(self, pop, data_list, valid_data_list):
+        if valid_data_list is None:
             x = data_list[0]
             nn_outputs = data_list[1:]
         else:
-            x = torch.vstack((data_list[0], extra_data_list[0]))
-            nn_outputs = [torch.vstack((data_list[i], extra_data_list[i])) for i in range(1, len(data_list))]
+            x = torch.vstack((data_list[0], valid_data_list[0]))
+            nn_outputs = [torch.vstack((data_list[i], valid_data_list[i])) for i in range(1, len(data_list))]
         for indiv in pop:
             predictions = indiv(x)
             indiv.fitness_list = []
@@ -276,12 +276,12 @@ class Evolution:
                 indiv.fitness_list.append(loss)
             indiv.fitness = self._calculate_weighted_fitness(indiv.fitness_list)
 
-    def _apply_evolution_strategy(self, population, trainer, data_list, extra_data_list):
+    def _apply_evolution_strategy(self, population, trainer, data_list, valid_data_list):
         parent = None
         if self.evo_strategy == 'fitness_select':
             for indiv in population:
                 trainer.train(net=indiv, data_list=data_list)
-            self._evaluate_fitness(population, data_list, extra_data_list)
+            self._evaluate_fitness(population, data_list, valid_data_list)
             parent = min(population, key=lambda x: x.fitness)
         elif self.evo_strategy == 'chromosome_select':
             cgp_layers, nn_layers = [], []
@@ -295,6 +295,7 @@ class Evolution:
                 for indiv in population:
                     chrom_cgp, chrom_linear = indiv.cgp_layers[chrom_idx], indiv.nn_layers[chrom_idx]
                     hi = data_list[chrom_idx+1]
+
                     trainer.apply_optim(chrom_linear(chrom_cgp(chrom_input)), hi, chrom_linear)
 
                     his = chrom_linear(chrom_cgp(chrom_input))
@@ -314,7 +315,7 @@ class Evolution:
             # simpily replace its layers and fitness
             parent.cgp_layers, parent.nn_layers = cgp_layers, nn_layers
             # finally, evaluate its fitness.
-            self._evaluate_fitness([parent], data_list, extra_data_list)
+            self._evaluate_fitness([parent], data_list, valid_data_list)
 
         return parent
 
@@ -325,7 +326,7 @@ class Evolution:
               verbose=0, n_jobs=1,
               random_state=None,
               evo_strategy=None,
-              extra_data_list=None):
+              valid_data_list=None):
         self.neurons = [data.shape[1] for data in data_list]
         self.evo_strategy = evo_strategy
 
@@ -392,9 +393,9 @@ class Evolution:
 
             # select parent with evolution strategy
             if not parent:
-                parent = self._apply_evolution_strategy(population, trainer, data_list, extra_data_list)
+                parent = self._apply_evolution_strategy(population, trainer, data_list, valid_data_list)
             else:
-                new_parent = self._apply_evolution_strategy(population[1:], trainer, data_list, extra_data_list)
+                new_parent = self._apply_evolution_strategy(population[1:], trainer, data_list, valid_data_list)
                 parent = new_parent if new_parent.fitness < parent.fitness else parent
 
             conv_f.append(parent.fitness)

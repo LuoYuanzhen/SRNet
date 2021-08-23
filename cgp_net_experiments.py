@@ -26,7 +26,7 @@ vars_map = {
 }
 
 
-def _train_process(controller, trainer, data_list, eps, msg, extra_data_list):
+def _train_process(controller, trainer, data_list, eps, msg, valid_data_list):
     print(msg)
     start_time = datetime.datetime.now()
     elites, convf = controller.start(data_list=data_list,
@@ -39,15 +39,14 @@ def _train_process(controller, trainer, data_list, eps, msg, extra_data_list):
                                      stop_fitness=eps['stop_fitness'],
                                      random_state=eps['random_state'],
                                      evo_strategy=eps['evolution_strategy'],
-                                     extra_data_list=extra_data_list
+                                     valid_data_list=valid_data_list
                                      )
     end_time = datetime.datetime.now()
 
     return elites, convf, (end_time - start_time).seconds / 60
 
 
-def run_a_dataset(trainer, evo_params, data_list, run_n_epoch, fname, extra_data_list=None, log_dir=None, img_dir=None, msg=''):
-
+def run_a_dataset(trainer, evo_params, data_list, run_n_epoch, fname, valid_data_list=None, log_dir=None, img_dir=None, msg=''):
     clas_net, clas_cgp = clas_net_map[evo_params['clas_net']], clas_cgp_map[evo_params['clas_cgp']]
     var_names = vars_map[fname][0] if fname in vars_map else None
     controller = Evolution(n_rows=evo_params['n_rows'],
@@ -64,7 +63,7 @@ def run_a_dataset(trainer, evo_params, data_list, run_n_epoch, fname, extra_data
                                 data_list,
                                 evo_params,
                                 f'{fname}-{msg}-{epoch} start:\n',
-                                extra_data_list
+                                valid_data_list
                                 )
         for epoch in range(run_n_epoch))
 
@@ -109,16 +108,14 @@ def run_a_dataset(trainer, evo_params, data_list, run_n_epoch, fname, extra_data
     return cfs, fs, ts, elites
 
 
-def generate_extrapolation_data(num_sample, inter_domains, extra_domains):
-    extra_input = []
-    for inter, extra in zip(inter_domains, extra_domains):
-        extra1, extra2 = (extra[0], inter[0]), (inter[1], extra[1])
-        extra_data1 = (extra1[1] - extra1[0]) * torch.rand(num_sample // 2, 1) + extra1[0]
-        extra_data2 = (extra2[1] - extra2[0]) * torch.rand(num_sample // 2, 1) + extra2[1]
-        extra_input.append(torch.vstack((extra_data1, extra_data2)))
-    extra_input = torch.hstack(extra_input)
+def generate_validation_data(num_valid, valid_domains):
+    x_valid = []
+    for valid_domain in valid_domains:
+        valid_xi = (valid_domain[1] - valid_domain[0]) * torch.rand(num_valid, 1) + valid_domain[0]
+        x_valid.append(valid_xi)
+    x_valid = torch.hstack(x_valid)
 
-    return extra_input
+    return x_valid
 
 
 def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel=None, run_n_epoch=30):
@@ -130,30 +127,21 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
         nn_dir = f'{data_dir}{fname}_nn/'
         nn_data_list = io.get_nn_datalist(nn_dir)
 
-        extra_data_list = None
-        if evo_params['extra_select']:
+        valid_data_list = None
+        if evo_params['validation']:
             # generate extrapolation data for model selection
             nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[fname]).cpu()
 
-            inter_domains, extra_domains = INTER_MAP[fname], VALID_MAP[fname]
-            num_sample = max(nn_data_list[0].shape[0] // 10, 10)
-            extra_input = generate_extrapolation_data(num_sample, inter_domains, extra_domains)
+            num_sample = max(nn_data_list[0].shape[0] // 10 * 3, 10)  # train:valid = 7:3
+            valid_input = generate_validation_data(num_sample, VALID_MAP[fname])
 
-            extra_data_list = [extra_input] + list(nn(extra_input))
-
+            valid_data_list = [valid_input] + list(nn(valid_input))
         srnn_cfs, srnn_fs, srnn_ts, srnn_elites = run_a_dataset(trainer,
                                                                 evo_params,
                                                                 nn_data_list,
                                                                 run_n_epoch,
                                                                 fname,
-                                                                extra_data_list=extra_data_list)
-
-        # run dcgp net w.r.t nn's input and output without save
-        # true_file = f'{data_dir}{fname}'
-        # true_data = io.get_dataset(true_file)
-        # true_data_list = [true_data[:, :-1], true_data[:, -1:]]
-        # sr_cfs, sr_fs, sr_ts, sr_elites = run_a_dataset(trainer, evo_params, true_data_list, run_n_epoch, fname,
-        #                                                 msg='sr')
+                                                                valid_data_list=valid_data_list)
 
         srnn_fs_list.append(srnn_fs)
 
@@ -166,12 +154,6 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
             'srnn_min_fitness': np.min(srnn_fs),
             'srnn_max_fitness': np.max(srnn_fs),
             'srnn_fitness': srnn_fs,
-            # 'sr_mean_time': np.mean(sr_ts),
-            # 'sr_mean_fitness': np.mean(sr_fs),
-            # 'sr_min_fitness': np.min(sr_fs),
-            # 'sr_max_fitness': np.max(sr_fs),
-            # 'sr_fitness': sr_fs,
-            # 'sr_elite': individual_to_dict(sr_elites[0], var_names)
         }
 
         elite_results = Parallel(n_jobs=joblib.cpu_count())(
@@ -191,13 +173,9 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        # we can test experiments by directly run this program
-        data_dir, xlabel = 'dataset/', 'K'
-        log_dir, img_dir = '/home/luoyuanzhen/result/log_extra/', '/home/luoyuanzhen/result/img_extra/'
-    else:
-        data_dir, xlabel = sys.argv[1], sys.argv[2]
-        log_dir, img_dir = sys.argv[3], sys.argv[4]
+
+    data_dir, xlabel = 'dataset/', 'K'
+    log_dir, img_dir = 'cgpnet_result/logs/', 'cgpnet_result/imgs/'
 
     io.mkdir(log_dir)
     io.mkdir(img_dir)
@@ -214,14 +192,14 @@ if __name__ == '__main__':
         'n_population': 200,
         'n_generation': 5000,
         'prob': 0.4,
-        'verbose': 10,
+        'verbose': 1,
         'stop_fitness': 1e-5,
         'random_state': None,
         'n_jobs': 1,
         'n_epoch': 0,
         'end_to_end': False,
-        'extra_select': True,
-        'evolution_strategy': 'fitness_select'
+        'validation': True,
+        'evolution_strategy': 'chromosome_select'
     }
     trainer = clas_optim_map[evo_params['optim']](end_to_end=evo_params['end_to_end'])
 
@@ -231,7 +209,21 @@ if __name__ == '__main__':
 
     # fname = 'kkk0'
     # data_list = io.get_nn_datalist(f'{data_dir}{fname}_nn/')
-    # run_a_dataset(trainer, evo_params, data_list, 1, fname, log_dir=log_dir, img_dir=img_dir)
+    #
+    # nn_dir = f'{data_dir}{fname}_nn/'
+    # nn_data_list = io.get_nn_datalist(nn_dir)
+    #
+    # valid_data_list = None
+    # if evo_params['validation']:
+    #     # generate extrapolation data for model selection
+    #     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[fname]).cpu()
+    #
+    #     num_sample = max(nn_data_list[0].shape[0] // 10 * 3, 10)  # train:valid = 7:3
+    #     valid_input = generate_validation_data(num_sample, VALID_MAP[fname])
+    #
+    #     valid_data_list = [valid_input] + list(nn(valid_input))
+    #
+    # run_a_dataset(trainer, evo_params, data_list, 1, fname, valid_data_list=valid_data_list, log_dir=log_dir, img_dir=img_dir)
 
 
 

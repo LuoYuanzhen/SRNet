@@ -15,7 +15,7 @@ class _Elites:
 
 
 def calculate_fitness_range():
-    directory = '/home/luoyuanzhen/result/log_v2/'
+    directory = '/home/luoyuanzhen/cgpnet_result/log_v2/'
     fnames = [f'kkk{i}_30log.json' for i in range(6)] + [f'feynman{i}_30log.json' for i in range(6)]
 
     import json
@@ -38,7 +38,7 @@ def calculate_fitness_range():
 
 
 def sort_by_fitness():
-    file = '/home/luoyuanzhen/result/log_v2/kkk5_30log.json'
+    file = '/home/luoyuanzhen/cgpnet_result/log_v2/kkk5_30log.json'
 
     import json
     with open(file, 'r') as f:
@@ -59,10 +59,10 @@ def sort_by_fitness():
 
 
 def see_fitness_trend():
-    file = '/home/luoyuanzhen/result/logs/'
+    file = '/home/luoyuanzhen/cgpnet_result/logs/'
     data_name = 'feynman4'
     fname = f'{data_name}_30cfs'
-    save_name = f'/home/luoyuanzhen/result/img_v2/{data_name}_trend.pdf'
+    save_name = f'/home/luoyuanzhen/cgpnet_result/img_v2/{data_name}_trend.pdf'
     is_log = True
 
     cfs = io.get_dataset(f'{file}{fname}')

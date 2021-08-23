@@ -17,8 +17,8 @@ def hidden_heat_map():
     dir = '../dataset/'
     filename = 'kkk0'
 
-    json_file = f'/home/luoyuanzhen/result/log_v2/{filename}_30log.json'
-    img_dir = f'/home/luoyuanzhen/result/test/'
+    json_file = f'/home/luoyuanzhen/cgpnet_result/log_v2/{filename}_30log.json'
+    img_dir = f'/home/luoyuanzhen/cgpnet_result/test/'
     which = 'elite[0]'
 
     nn_dir = f"{dir}{filename}_nn/"
@@ -44,9 +44,9 @@ def hidden_heat_map():
 def output_curves():
     """draw the output curves, note that every variable x woule be the same as x[0]"""
     dir = '../dataset/'
-    filename = 'kkk1'
-    json_file = f'/home/luoyuanzhen/result/log_extra/{filename}_30log.json'
-    img_dir = '/home/luoyuanzhen/result/img_extra/'
+    filename = 'kkk0'
+    json_file = f'../cgpnet_result/logs/{filename}_30log.json'
+    img_dir = '../cgpnet_result/imgs/'
 
     nn_dir = f"{dir}{filename}_nn/"
 
@@ -65,25 +65,23 @@ def output_curves():
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     nn_output = nn(x)[-1].detach()
 
-    # top 10
-    for num in range(10):
-        which = f'elite[{num}]'
-        individual = _encode_individual(json_file, which)
-        srnn_output = individual(x)[-1].detach()
-        ys = [true_output, nn_output, srnn_output]
-        labels = ['True', 'MLP', 'CGPNet']
-        draw_output_compare_curves(x[:, 0], ys, labels,
-                                   inter_range=inter_range,
-                                   n_var=n_var,
-                                   title=f'{filename}',
-                                   savepath=f'{img_dir}{filename}_curves_{which}.pdf')
+    which = f'elite[0]'
+    individual = _encode_individual(json_file, which)
+    srnn_output = individual(x)[-1].detach()
+    ys = [true_output, nn_output, srnn_output]
+    labels = ['True', 'MLP', 'CGPNet']
+    draw_output_compare_curves(x[:, 0], ys, labels,
+                               inter_range=inter_range,
+                               n_var=n_var,
+                               title=f'{filename}',
+                               savepath=f'{img_dir}{filename}_curves_{which}.pdf')
 
 
 def output_curves_interpolate():
     dir = '../dataset/'
-    filename = 'kkk1'
-    json_file = f'/home/luoyuanzhen/result/log_extra/{filename}_30log.json'
-    img_dir = '/home/luoyuanzhen/result/img_extra/'
+    filename = 'kkk0'
+    json_file = f'../cgpnet_result/logs/{filename}_30log.json'
+    img_dir = '../cgpnet_result/imgs/'
 
     nn_dir = f"{dir}{filename}_nn/"
 
@@ -101,22 +99,20 @@ def output_curves_interpolate():
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     nn_output = nn(x)[-1].detach()
 
-    # top 10
-    for num in range(10):
-        which = f'elite[{num}]'
-        individual = _encode_individual(json_file, which)
-        srnn_output = individual(x)[-1].detach()
-        ys = [true_output, nn_output, srnn_output]
-        labels = ['True', 'MLP', 'CGPNet']
-        draw_output_compare_curves(x[:, 0], ys, labels,
-                                   n_var=n_var)
+    which = f'elite[0]'
+    individual = _encode_individual(json_file, which)
+    srnn_output = individual(x)[-1].detach()
+    ys = [true_output, nn_output, srnn_output]
+    labels = ['True', 'MLP', 'CGPNet']
+    draw_output_compare_curves(x[:, 0], ys, labels,
+                               n_var=n_var)
 
 
 def project_output_scatter():
     dir = '../dataset/'
-    filename = 'kkk1'
-    json_file = f'/home/luoyuanzhen/result/log_extra/{filename}_30log.json'
-    img_dir = '/home/luoyuanzhen/result/img/'
+    filename = 'kkk0'
+    json_file = f'../cgpnet_result/logs/{filename}_30log.json'
+    img_dir = '../cgpnet_result/imgs/'
 
     which = 'elite[0]'
     nn_dir = f"{dir}{filename}_nn/"
@@ -150,8 +146,8 @@ def project_output_scatter():
 def project_output_scatter_interpolate():
     dir = '../dataset/'
     filename = 'kkk1'
-    json_file = f'/home/luoyuanzhen/result/log_extra/{filename}_30log.json'
-    img_dir = '/home/luoyuanzhen/result/img/'
+    json_file = f'/home/luoyuanzhen/cgpnet_result/log_extra/{filename}_30log.json'
+    img_dir = '/home/luoyuanzhen/cgpnet_result/img/'
 
     nn_dir = f"{dir}{filename}_nn/"
 
@@ -179,7 +175,7 @@ def classifier_decisions_bounds():
     dir = '/home/luoyuanzhen/Datasets/regression/feynman/'
     filename = 'feynman2'
 
-    json_file = f'/home/luoyuanzhen/result/single_log_v3/{filename}_30log.json'
+    json_file = f'/home/luoyuanzhen/cgpnet_result/single_log_v3/{filename}_30log.json'
     which = 'elite[0]'
 
     individual = encode_individual_from_json(json_file, which)
@@ -198,10 +194,10 @@ def test():
 
 if __name__ == '__main__':
     # hidden_heat_map()
-    # output_curves()
+    output_curves()
     # output_curves_interpolate()
     # project_output_scatter()
-    project_output_scatter_interpolate()
+    # project_output_scatter_interpolate()
     # test()
 
 

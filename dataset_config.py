@@ -1,4 +1,4 @@
-"""Real function, map of experiments' result, range of interpolation data, extrapolation data"""
+"""Real function, map of experiments' cgpnet_result, range of interpolation data, extrapolation data"""
 import torch
 
 
