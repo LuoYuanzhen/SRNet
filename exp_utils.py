@@ -256,6 +256,16 @@ def draw_decision_bound(data_dir, data_name, individual, from_pmlb):
     _draw()
 
 
+def generate_domains_data(num_sample, domains):
+    x_valid = []
+    for valid_domain in domains:
+        valid_xi = (valid_domain[1] - valid_domain[0]) * torch.rand(num_sample, 1) + valid_domain[0]
+        x_valid.append(valid_xi)
+    x_valid = torch.hstack(x_valid)
+
+    return x_valid
+
+
 def save_cfs(save_name, cfs):
     cfs_save = torch.t(torch.tensor(cfs, dtype=torch.float))
     io.save_parameters(cfs_save, save_name)

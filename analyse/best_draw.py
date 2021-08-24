@@ -14,16 +14,10 @@ def _encode_individual(json_file, which):
 
 
 def hidden_heat_map():
-    dir = '../dataset/'
-    filename = 'kkk0'
 
-    json_file = f'/home/luoyuanzhen/cgpnet_result/log_v2/{filename}_30log.json'
-    img_dir = f'/home/luoyuanzhen/cgpnet_result/test/'
-    which = 'elite[0]'
+    nn_dir = f"{data_dir}{filename}_nn/"
 
-    nn_dir = f"{dir}{filename}_nn/"
-
-    true_inner = io.get_dataset(f'{dir}{filename}')
+    true_inner = io.get_dataset(f'{data_dir}{filename}')
     x_inner = true_inner[:, :-1]
 
     individual = _encode_individual(json_file, which)
@@ -43,14 +37,10 @@ def hidden_heat_map():
 
 def output_curves():
     """draw the output curves, note that every variable x woule be the same as x[0]"""
-    dir = '../dataset/'
-    filename = 'kkk0'
-    json_file = f'../cgpnet_result/test_logs/{filename}_30log.json'
-    img_dir = '../cgpnet_result/test_imgs/'
 
-    nn_dir = f"{dir}{filename}_nn/"
+    nn_dir = f"{data_dir}{filename}_nn/"
 
-    true_inner = io.get_dataset(f'{dir}{filename}')
+    true_inner = io.get_dataset(f'{data_dir}{filename}')
     n_var = true_inner.shape[1] - 1
 
     x0_range = TEST_MAP[filename][0]
@@ -65,7 +55,6 @@ def output_curves():
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     nn_output = nn(x)[-1].detach()
 
-    which = f'elite[0]'
     individual = _encode_individual(json_file, which)
     srnn_output = individual(x)[-1].detach()
     ys = [true_output, nn_output, srnn_output]
@@ -78,14 +67,10 @@ def output_curves():
 
 
 def output_curves_interpolate():
-    dir = '../dataset/'
-    filename = 'kkk0'
-    json_file = f'../cgpnet_result/logs/{filename}_30log.json'
-    img_dir = '../cgpnet_result/imgs/'
 
-    nn_dir = f"{dir}{filename}_nn/"
+    nn_dir = f"{data_dir}{filename}_nn/"
 
-    true_inner = io.get_dataset(f'{dir}{filename}')
+    true_inner = io.get_dataset(f'{data_dir}{filename}')
     n_var = true_inner.shape[1] - 1
 
     x0_range = INTER_MAP[filename][0]
@@ -99,7 +84,6 @@ def output_curves_interpolate():
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     nn_output = nn(x)[-1].detach()
 
-    which = f'elite[0]'
     individual = _encode_individual(json_file, which)
     srnn_output = individual(x)[-1].detach()
     ys = [true_output, nn_output, srnn_output]
@@ -109,15 +93,10 @@ def output_curves_interpolate():
 
 
 def project_output_scatter():
-    dir = '../dataset/'
-    filename = 'kkk0'
-    json_file = f'../cgpnet_result/test_logs/{filename}_30log.json'
-    img_dir = '../cgpnet_result/test_imgs/'
 
-    which = 'elite[0]'
-    nn_dir = f"{dir}{filename}_nn/"
+    nn_dir = f"{data_dir}{filename}_nn/"
 
-    x_inner = io.get_dataset(f'{dir}{filename}_nn/input')
+    x_inner = io.get_dataset(f'{data_dir}{filename}_nn/input')
 
     x_range, inter_ranges = VALID_MAP[filename], INTER_MAP[filename]
     n_sample = x_inner.shape[0]
@@ -144,42 +123,29 @@ def project_output_scatter():
 
 
 def project_output_scatter_interpolate():
-    dir = '../dataset/'
-    filename = 'kkk1'
-    json_file = f'/home/luoyuanzhen/cgpnet_result/log_extra/{filename}_30log.json'
-    img_dir = '/home/luoyuanzhen/cgpnet_result/img/'
 
-    nn_dir = f"{dir}{filename}_nn/"
+    nn_dir = f"{data_dir}{filename}_nn/"
 
-    x = io.get_dataset(f'{dir}{filename}_nn/input')
+    x = io.get_dataset(f'{data_dir}{filename}_nn/input')
 
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     nn_output = nn(x)[-1].detach()
 
     true_output = FUNC_MAP[filename](*list([x[:, i] for i in range(x.shape[1])]))
 
-    vars = tuple(list([x[:, i] for i in range(x.shape[1])]))
-
     # top 10
-    for i in range(10):
-        which = f'elite[{i}]'
-        individual = _encode_individual(json_file, which)
-        srnn_output = individual(x)[-1].detach()
+    individual = _encode_individual(json_file, which)
+    srnn_output = individual(x)[-1].detach()
 
-        ys = [nn_output, true_output, srnn_output]
-        labels = ['True', 'MLP', 'CGPNet']
-        draw_project_output_scatter(x, ys, labels)
+    ys = [nn_output, true_output, srnn_output]
+    labels = ['True', 'MLP', 'CGPNet']
+    draw_project_output_scatter(x, ys, labels)
 
 
 def classifier_decisions_bounds():
-    dir = '/home/luoyuanzhen/Datasets/regression/feynman/'
-    filename = 'feynman2'
-
-    json_file = f'/home/luoyuanzhen/cgpnet_result/single_log_v3/{filename}_30log.json'
-    which = 'elite[0]'
 
     individual = encode_individual_from_json(json_file, which)
-    draw_decision_bound(dir, filename, individual, from_pmlb=False)
+    draw_decision_bound(data_dir, filename, individual, from_pmlb=False)
 
 
 def test():
@@ -193,10 +159,17 @@ def test():
 
 
 if __name__ == '__main__':
-    # hidden_heat_map()
+    data_dir = '../dataset/'
+    filename = 'kkk5'
+
+    json_file = f'../cgpnet_result/test_logs/{filename}_30log.json'
+    img_dir = f'../cgpnet_result/test_imgs/'
+    which = 'elite[0]'
+
+    hidden_heat_map()
     # output_curves()
     # output_curves_interpolate()
-    project_output_scatter()
+    # project_output_scatter()
     # project_output_scatter_interpolate()
     # test()
 

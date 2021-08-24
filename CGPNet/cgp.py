@@ -2,7 +2,21 @@ from functools import reduce
 
 import torch
 
+from CGPNet.params import CGPParameters
 from CGPNet.utils import CGPFactory
+
+
+def create_cgp_by_net_params(n_inputs, n_outputs, net_params, cls_cgp, genes=None, ephs=None):
+    cgp_params = CGPParameters(
+        n_inputs=n_inputs,
+        n_outputs=n_outputs,
+        n_rows=net_params.n_rows,
+        n_cols=net_params.n_cols,
+        levels_back=net_params.levels_back,
+        function_set=net_params.function_set,
+        n_eph=net_params.n_eph
+    )
+    return cls_cgp(cgp_params)
 
 
 class CGP:
@@ -145,3 +159,80 @@ class CGP:
         for gidx, mutant in zip(gidxs, mutant_genes):
             genes[gidx] = mutant
         return CGP(self.params, genes, self.ephs)
+
+
+class WeightCGP(CGP):
+    def __init__(self, params, genes=None, ephs=None):
+        # remember the (params.n_inputs-1)th input node would be seen as i that range from integers [1, 2, ..., n_outputs]
+        super(WeightCGP, self).__init__(params, genes, ephs)
+
+    def __call__(self, x):
+        """weight CGP call way. Seeing x[:, i] as a single variable, but x[:, -1] as range from integer [1, 2, ..., n_outputs]
+        INPUT: Make sure x.shape[1] == self.n_inputs
+        OUTPUT: y where y.shape[1] == self.n_outputs """
+        for path in self.active_paths:
+            for gene in path:
+                node = self.nodes[gene]
+                if node.is_input:
+                    if node.no >= self.n_inputs:
+                        node.value = self.ephs[node.no - self.n_inputs]
+                    elif node.no == self.n_inputs-1:
+                        # what if we make its output as multiple dims?
+                        node.value = torch.tensor([integer for integer in range(1, self.n_outputs+1)])
+                    else:
+                        node.value = x[:, node.no].reshape(-1, 1)
+                elif node.is_output:
+                    node.value = self.nodes[node.inputs[0]].value
+                else:
+                    f = node.func
+                    operants = [self.nodes[node.inputs[i]].value for i in range(node.arity)]
+                    node.value = f(*operants)
+
+        outputs = []
+        for i, node in enumerate(self.nodes[-self.n_outputs:]):
+            shape = node.value.shape
+            if len(shape) == 0:
+                # only ephs
+                outputs.append(node.value.repeat(x.shape[0]).reshape(-1, 1))
+            elif len(shape) == 1:
+                # only integers or integers operate with ephs
+                outputs.append(node.value[i].repeat(x.shape[0]).reshape(-1, 1))
+            else:
+                if shape[1] > 1:
+                    # x operate with integer
+                    outputs.append(node.value[:, i:i+1])
+                else:
+                    outputs.append(node.value)
+
+        return torch.hstack(outputs)
+
+    def get_expressions(self, input_vars=None, symbol_constant=False):
+        """return a list of self.n_outputs formulas"""
+        if input_vars is not None and len(input_vars) != self.n_inputs-1:
+            raise ValueError(f'Expect len(input_vars)={self.n_inputs-1}, but got {len(input_vars)}')
+
+        symbol_stack = []
+        results = []
+        for path in self.active_paths:
+            for i_node in path:
+                node = self.nodes[i_node]
+                if node.is_input:
+                    if i_node >= self.n_inputs:
+                        c = f'c{i_node - self.n_inputs}' if symbol_constant \
+                            else self.ephs[i_node - self.n_inputs].item()
+                    elif i_node == self.n_inputs-1:
+                        c = 'i'
+                    else:
+                        if input_vars is None:
+                            c = f'x{i_node}' if self.n_inputs > 1 else 'x'
+                        else:
+                            c = input_vars[i_node]
+                    symbol_stack.append(c)
+                elif node.is_output:
+                    results.append(symbol_stack.pop())
+                else:
+                    f = node.func
+                    # get a sympy symbolic expression.
+                    symbol_stack.append(f(*[symbol_stack.pop() for _ in range(f.arity)], is_pt=False))
+
+        return results

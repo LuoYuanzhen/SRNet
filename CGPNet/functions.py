@@ -8,9 +8,11 @@ class _Function:
         self.arity = arity
 
     def pt_func(self, *args):
+        # return values, requires args torch.tensor
         return None
 
     def sp_func(self, *args):
+        # return sympy expression, requires args sympy.Symbol or single value
         return None
 
     def __call__(self, *args, is_pt=True):

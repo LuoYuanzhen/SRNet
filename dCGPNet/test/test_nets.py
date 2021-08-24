@@ -182,6 +182,19 @@ def test_parameters():
     print(net.get_net_parameters())
 
 
+def test():
+    wi = torch.tensor([integer for integer in range(1, 5)])
+    print(wi)
+    x = torch.tensor([1, 2, 3], dtype=torch.float)
+    print(x)
+
+    print(x*wi)
+    print(wi*x)
+
+    print(wi + 0.5)
+    print(torch.sqrt(wi))
+
+
 if __name__ == '__main__':
     # for _ in range(5):
     # test_net()
@@ -189,4 +202,5 @@ if __name__ == '__main__':
     # test_net_torch()
     # test_net_expression()
     # test_OneLinearCGPNet_OneExp()
-    test_parameters()
+    # test_parameters()
+    test()

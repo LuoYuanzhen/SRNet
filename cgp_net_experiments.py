@@ -13,7 +13,7 @@ from dCGPNet.functions import default_functions
 from dCGPNet.methods import Evolution
 from data_utils import io, draw
 from dataset_config import INTER_MAP, VALID_MAP
-from exp_utils import save_cfs, draw_f_trend, individual_to_dict
+from exp_utils import save_cfs, draw_f_trend, individual_to_dict, generate_domains_data
 from neural_networks.nn_models import NN_MAP
 
 vars_map = {
@@ -109,16 +109,6 @@ def run_a_dataset(trainer, evo_params, data_list, run_n_epoch, fname, valid_data
     return cfs, fs, ts, elites
 
 
-def generate_validation_data(num_valid, valid_domains):
-    x_valid = []
-    for valid_domain in valid_domains:
-        valid_xi = (valid_domain[1] - valid_domain[0]) * torch.rand(num_valid, 1) + valid_domain[0]
-        x_valid.append(valid_xi)
-    x_valid = torch.hstack(x_valid)
-
-    return x_valid
-
-
 def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel=None, run_n_epoch=30):
     srnn_fs_list = []
     for fname in all_names:
@@ -134,7 +124,7 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
             nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[fname]).cpu()
 
             num_sample = max(nn_data_list[0].shape[0] // 10 * 3, 10)  # train:valid = 7:3
-            valid_input = generate_validation_data(num_sample, VALID_MAP[fname])
+            valid_input = generate_domains_data(num_sample, VALID_MAP[fname])
 
             valid_data_list = [valid_input] + list(nn(valid_input))
         srnn_cfs, srnn_fs, srnn_ts, srnn_elites = run_a_dataset(trainer,
