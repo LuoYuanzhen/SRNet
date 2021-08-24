@@ -1,7 +1,9 @@
 {
-    "model_test_rmse": 1.71660578250885,
-    "srnet_valid_rmse": 0.019021347165107727,
-    "lime_test_rmse": 0.17540163687349228,
-    "maple_test_rmse": 0.017793242946933446,
-    "srnet_rmse": 0.01827579687845826
+    "model_test_rmse": 1.6686381101608276,
+    "srnet_valid_rmse": 0.021312333643436432,
+    "lime_valid_rmse": 0.5549900968200778,
+    "maple_valid_rmse": 1.2063684972560726,
+    "srnet_test_rmse": 0.019770876522305116,
+    "lime_test_rmse": 0.17296288787915196,
+    "maple_test_rmse": 0.01889663577943221
 }

@@ -264,16 +264,19 @@ def save_cfs(save_name, cfs):
 def individual_to_dict(indiv, var_names=None):
 
     end_exp = pretty_net_exprs(indiv, var_names)
-    cgp_genes, cgp_ephs, ws = [], [], []
+    cgp_genes, cgp_ephs, ws, bias = [], [], [], []
     for cgp, linear in zip(indiv.cgp_layers, indiv.nn_layers):
         cgp_genes.append(cgp.genes)
         cgp_ephs.append(cgp.get_ephs().numpy().tolist())
         ws.append(linear.get_weight().numpy().tolist())
+        if linear.add_bias:
+            bias.append(linear.get_bias().numpy().tolist())
 
     indiv_dict = {'final_expression': str(end_exp),
                   'fitness': (indiv.fitness, indiv.fitness_list),
                   'expressions': str(indiv.get_cgp_expressions()),
                   'weights': ws,
+                  'bias': bias,
                   'constants': cgp_ephs,
                   'genes': cgp_genes
                   }
@@ -293,12 +296,14 @@ def encode_individual_from_json(json_file, elite_name):
                                n_cols=evo_params['n_cols'],
                                levels_back=evo_params['levels_back'],
                                function_set=evo_params['function_set'],
-                               n_eph=evo_params['n_eph'])
+                               n_eph=evo_params['n_eph'],
+                               add_bias=evo_params['add_bias'])
     clas_net = clas_net_map[evo_params['clas_net']]
     clas_cgp = clas_cgp_map[evo_params['clas_cgp']]
     return clas_net.encode_net(net_params,
                                genes_list=indiv_dict['genes'],
                                ephs_list=indiv_dict['constants'],
                                w_list=indiv_dict['weights'],
+                               bias_list=indiv_dict['bias'] if net_params.add_bias else None,
                                clas_cgp=clas_cgp)
 

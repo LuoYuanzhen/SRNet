@@ -247,6 +247,16 @@ class LinearLayer(nn.Module):
 
         self.weight = Parameter(weight)
 
+    def set_bias(self, bias):
+        if bias.shape != self.bias.shape:
+            raise ValueError(f"expected bias's shape {self.bias.shape}, but got {bias.shape}")
+        if isinstance(bias, np.ndarray):
+            weight = torch.from_numpy(bias).float()
+        elif isinstance(bias, list):
+            weight = torch.tensor(bias).float()
+
+        self.weight = Parameter(bias)
+
     def get_weight(self):
         return self.weight.detach()
 

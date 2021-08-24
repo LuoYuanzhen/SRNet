@@ -15,8 +15,8 @@ from maple.Misc import normaliza_data, unpack_coefs
 from neural_networks.nn_models import NN_MAP
 
 
-datasets = ['kkk0']
-trials = [1]
+datasets = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk4', 'kkk5']
+trials = [1, 2, 3, 4, 5, 6]
 
 
 def my_pred(model, x):
@@ -47,7 +47,7 @@ def run_compare(dataset, trial):
     X_test, y_test = test[:, :-1], test[:, -1]
     X_valid, y_valid = valid[:, :-1], valid[:, -1]
 
-    n = X_train.shape[0]
+    n = X_test.shape[0]
     d = X_train.shape[1]
 
     nn_model = io.load_nn_model('dataset/'+dataset+'_nn/nn_module.pt', load_type='dict', nn=NN_MAP[dataset]).cpu()
@@ -59,13 +59,13 @@ def run_compare(dataset, trial):
     exp_lime = lime_tabular.LimeTabularExplainer(X_train, discretize_continuous=False, mode="regression")
     exp_maple = MAPLE(X_train, my_pred(nn_model, X_train), X_valid, my_pred(nn_model, X_valid))
 
-    lime_rmse = np.zeros(1)
-    maple_rmse = np.zeros(1)
-    srnet_rmse = np.zeros(1)
+    lime_rmse = np.zeros(2)
+    maple_rmse = np.zeros(2)
+    srnet_rmse = np.zeros(2)
 
     # save predictions of all interpretable model
-    x_noise = []
     model_test_output, srnet_test_output, lime_test_output, maple_test_output = [], [], [], []
+    model_valid_output, lime_valid_output, maple_valid_output = [], [], []
     for i in range(n):
         x_test = X_test[i, :]
         x_valid = X_valid[i, :]
@@ -75,19 +75,30 @@ def run_compare(dataset, trial):
         e_maple = exp_maple.explain(x_test)
         coefs_maple = e_maple["coefs"]
 
+        model_valid_pred = my_pred(nn_model, x_valid.reshape(1, -1))
+        lime_valid_pred = np.dot(np.insert(x_valid, 0, 1), coefs_lime)
+        maple_valid_pred = np.dot(np.insert(x_valid, 0, 1), coefs_maple)
+
         model_test_pred = my_pred(nn_model, x_test.reshape(1, -1))
         srnet_test_pred = my_pred(srnet, x_test.reshape(1, -1))
-        lime_valid_pred = np.dot(np.insert(x_test, 0, 1), coefs_lime)
-        maple_valid_pred = np.dot(np.insert(x_test, 0, 1), coefs_maple)
+        lime_test_pred = np.dot(np.insert(x_test, 0, 1), coefs_lime)
+        maple_test_pred = np.dot(np.insert(x_test, 0, 1), coefs_maple)
+
+        model_valid_output.append(model_valid_pred.reshape(1, -1))
+        lime_valid_output.append(lime_valid_pred.reshape(1, -1))
+        maple_valid_output.append(maple_valid_pred.reshape(1, -1))
 
         model_test_output.append(model_test_pred.reshape(1, -1))
         srnet_test_output.append(srnet_test_pred.reshape(1, -1))
-        lime_test_output.append(lime_valid_pred.reshape(1, -1))
-        maple_test_output.append(maple_valid_pred.reshape(1, -1))
+        lime_test_output.append(lime_test_pred.reshape(1, -1))
+        maple_test_output.append(maple_test_pred.reshape(1, -1))
 
-        lime_rmse += (lime_valid_pred - model_test_pred) ** 2
-        maple_rmse += (maple_valid_pred - model_test_pred) ** 2
-        srnet_rmse += (srnet_test_pred - model_test_pred) ** 2
+        lime_rmse[1] += (lime_valid_pred - model_valid_pred) ** 2
+        maple_rmse[1] += (maple_valid_pred - model_valid_pred) ** 2
+
+        lime_rmse[0] += (lime_test_pred - model_test_pred) ** 2
+        maple_rmse[0] += (maple_test_pred - model_test_pred) ** 2
+        srnet_rmse[0] += (srnet_test_pred - model_test_pred) ** 2
 
     lime_rmse /= n
     maple_rmse /= n
@@ -97,9 +108,12 @@ def run_compare(dataset, trial):
     maple_rmse = np.sqrt(maple_rmse)
     srnet_rmse = np.sqrt(srnet_rmse)
 
+    out["lime_valid_rmse"] = lime_rmse[1]
+    out["maple_valid_rmse"] = maple_rmse[1]
+
+    out["srnet_test_rmse"] = srnet_rmse[0]
     out["lime_test_rmse"] = lime_rmse[0]
     out["maple_test_rmse"] = maple_rmse[0]
-    out["srnet_test_rmse"] = srnet_rmse[0]
 
     model_test_output = np.vstack(model_test_output)
     srnet_test_output = np.vstack(srnet_test_output)
@@ -111,8 +125,14 @@ def run_compare(dataset, trial):
 
     ys = [model_test_output, srnet_test_output, lime_test_output, maple_test_output]
     labels = ['MLP', 'CGPNet', 'LIME', 'MAPLE']
-    exp_utils.draw_project_output_scatter(X_train, ys, labels)
-    exp_utils.draw_output_compare_curves(X_train[:, 0], ys, labels, n_var=X_train.shape[1])
+    exp_utils.draw_project_output_scatter(X_test, ys, labels)
+
+    x_sorted, indexs = torch.sort(torch.from_numpy(X_test[:, 0]))
+    _, reback_indexs = torch.sort(indexs)
+    for y in ys:
+        y = torch.from_numpy(y).index_select(0, reback_indexs)
+
+    exp_utils.draw_output_compare_curves(X_test[:, 0], ys, labels, n_var=X_train.shape[1])
 
 
 ###

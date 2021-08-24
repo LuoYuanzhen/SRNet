@@ -141,9 +141,13 @@ def pretty_net_exprs(net, var_names=None):
         if not var_names:
             var_names = list([f'x{i}' for i in range(net_input)]) if net_input > 1 else ['x']
         exprs = var_names  # 1, n_var
+        for f_cgp, w_cgp in zip(net.f_cgps, net.w_cgps):
+            exprs = f_cgp.get_expression(input_vars=exprs)
+
+
         for linear, cgp in zip(net.nn_layers, net.cgp_layers):
             exprs = cgp.get_expressions(input_vars=exprs)
-            exprs = sp.Matrix(exprs) * linear.get_weight() + linear.get_bias().reshape(1, -1)
+            exprs = sp.Matrix(exprs) * linear.get_weight()
     else:
         # h_i = f_i(h_{i-1} * W)
         w_list = net.get_ws()

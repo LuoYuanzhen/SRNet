@@ -55,7 +55,8 @@ def run_a_dataset(trainer, evo_params, data_list, run_n_epoch, fname, valid_data
                            function_set=evo_params['function_set'],
                            n_eph=evo_params['n_eph'],
                            clas_net=clas_net,
-                           clas_cgp=clas_cgp)
+                           clas_cgp=clas_cgp,
+                           add_bias=evo_params['add_bias'])
 
     results = Parallel(n_jobs=run_n_epoch)(
         delayed(_train_process)(controller,
@@ -175,7 +176,7 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
 if __name__ == '__main__':
 
     data_dir, xlabel = 'dataset/', 'K'
-    log_dir, img_dir = 'cgpnet_result/logs/', 'cgpnet_result/imgs/'
+    log_dir, img_dir = 'cgpnet_result/test_logs/', 'cgpnet_result/test_imgs/'
 
     io.mkdir(log_dir)
     io.mkdir(img_dir)
@@ -189,8 +190,10 @@ if __name__ == '__main__':
         'levels_back': None,
         'function_set': default_functions,
         'n_eph': 1,
+        'add_bias': True,
+
         'n_population': 200,
-        'n_generation': 5000,
+        'n_generation': 500,
         'prob': 0.4,
         'verbose': 1,
         'stop_fitness': 1e-5,
@@ -203,27 +206,27 @@ if __name__ == '__main__':
     }
     trainer = clas_optim_map[evo_params['optim']](end_to_end=evo_params['end_to_end'])
 
-    all_names = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk4', 'kkk5',
-                 'feynman0', 'feynman1', 'feynman2', 'feynman3', 'feynman4', 'feynman5']
-    run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel)
+    # all_names = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk4', 'kkk5',
+    #              'feynman0', 'feynman1', 'feynman2', 'feynman3', 'feynman4', 'feynman5']
+    # run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel)
 
-    # fname = 'kkk0'
-    # data_list = io.get_nn_datalist(f'{data_dir}{fname}_nn/')
-    #
-    # nn_dir = f'{data_dir}{fname}_nn/'
-    # nn_data_list = io.get_nn_datalist(nn_dir)
-    #
-    # valid_data_list = None
-    # if evo_params['validation']:
-    #     # generate extrapolation data for model selection
-    #     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[fname]).cpu()
-    #
-    #     num_sample = max(nn_data_list[0].shape[0] // 10 * 3, 10)  # train:valid = 7:3
-    #     valid_input = generate_validation_data(num_sample, VALID_MAP[fname])
-    #
-    #     valid_data_list = [valid_input] + list(nn(valid_input))
-    #
-    # run_a_dataset(trainer, evo_params, data_list, 1, fname, valid_data_list=valid_data_list, log_dir=log_dir, img_dir=img_dir)
+    fname = 'kkk0'
+    data_list = io.get_nn_datalist(f'{data_dir}{fname}_nn/')
+
+    nn_dir = f'{data_dir}{fname}_nn/'
+    nn_data_list = io.get_nn_datalist(nn_dir)
+
+    valid_data_list = None
+    if evo_params['validation']:
+        # generate extrapolation data for model selection
+        nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[fname]).cpu()
+
+        num_sample = max(nn_data_list[0].shape[0] // 10 * 3, 10)  # train:valid = 7:3
+        valid_input = generate_validation_data(num_sample, VALID_MAP[fname])
+
+        valid_data_list = [valid_input] + list(nn(valid_input))
+
+    run_a_dataset(trainer, evo_params, data_list, 1, fname, valid_data_list=valid_data_list, log_dir=log_dir, img_dir=img_dir)
 
 
 

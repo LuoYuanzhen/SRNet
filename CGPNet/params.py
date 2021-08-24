@@ -1,4 +1,4 @@
-from dCGPNet.functions import function_map
+from CGPNet.functions import function_map
 
 
 class CGPParameters:
@@ -36,8 +36,7 @@ class NetParameters:
                  n_cols,
                  levels_back,
                  function_set,
-                 n_eph=0,
-                 add_bias=False
+                 n_eph=0
                  ):
         self.neurons = neurons
         self.n_rows = n_rows
@@ -45,7 +44,6 @@ class NetParameters:
         self.levels_back = levels_back
         self.function_set = function_set
         self.n_eph = n_eph
-        self.add_bias = add_bias
 
     def __repr__(self):
         str = f"NetParameters(\n" \

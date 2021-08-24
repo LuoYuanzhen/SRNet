@@ -1,10 +1,13 @@
 import sympy as sp
 import torch
+from torch import nn
 
 from dCGPNet.functions import default_functions
+from dCGPNet.methods import NewtonTrainer
 from dCGPNet.nets import MulExpCGPLayer, OneLinearCGPNet, OneExpCGPLayer, OneVectorCGPNet
 from dCGPNet.params import CGPParameters, NetParameters
 from dCGPNet.utils import pretty_net_exprs
+from data_utils import io
 
 
 def _print_net(net, x):
@@ -107,10 +110,82 @@ def test_OneLinearCGPNet_OneExp():
     _print_net(net, x)
 
 
+def get_inverse_hessian(loss, weight):
+    """Calculate the inverse Hessian matrix"""
+
+    # save the gradient
+    gradient = torch.autograd.grad(loss, weight, retain_graph=True, create_graph=True)[0]
+    if not torch.all(torch.isfinite(gradient)):
+        return None, None
+
+    hessian = []
+    for grad in gradient.view(-1):
+        order2_gradient = torch.autograd.grad(grad, weight, retain_graph=True)[0]  # weight.shape
+        hessian.append(order2_gradient.view(-1))
+    hessian = torch.stack(hessian, dim=1)
+
+    if not torch.all(torch.isfinite(hessian)):
+        return None, None
+
+    determinant = torch.det(hessian)
+    if determinant == 0:
+        return None, None
+
+    eigenvalues, _ = torch.eig(hessian)
+    if not torch.all(eigenvalues[:, 0] > 0):
+        return None, None
+
+    hessian_inv = torch.inverse(hessian)
+    if not torch.all(torch.isfinite(hessian_inv)):
+        return None, None
+
+    return gradient, hessian_inv
+
+
+def test_parameters():
+    data_list = io.get_nn_datalist('../../dataset/kkk0_nn/')
+    neurons = [data.shape[1] for data in data_list]
+
+    net_params = NetParameters(neurons,
+                               5, 5,
+                               None,
+                               default_functions,
+                               1)
+    net = OneVectorCGPNet(net_params, add_bias=True)
+    print(net.get_net_parameters())
+
+    mse = nn.MSELoss()
+    x = data_list[0]
+    print('before MSE', [mse(h, net(x)[i]).item() for i, h in enumerate(data_list[1:])])
+
+    print(pretty_net_exprs(net))
+
+    nothing = 0
+    for i, linear in enumerate(net.nn_layers):
+        # print(list(linear.parameters()))
+        # for name, parameter in linear.named_parameters():
+        #     print(name, parameter)
+        loss = mse(data_list[i+1], net(x)[i])
+        for param in linear.parameters():
+            gradient, hessian_inv = get_inverse_hessian(loss, param)
+            if hessian_inv is not None:
+                param.data = param.data - torch.matmul(gradient, hessian_inv)
+                print(param)
+                # linear.set_weight(linear.weight - torch.matmul(gradient, hessian_inv))
+            if param.grad is not None:
+                param.grad.data.zero_()
+                nothing += 1
+                # linear.weight.grad.data.zero_()
+    print(nothing)
+    print('after MSE', [mse(h, net(x)[i]).item() for i, h in enumerate(data_list[1:])])
+    print(net.get_net_parameters())
+
+
 if __name__ == '__main__':
     # for _ in range(5):
     # test_net()
     # test_layer_torch()
     # test_net_torch()
-    test_net_expression()
+    # test_net_expression()
     # test_OneLinearCGPNet_OneExp()
+    test_parameters()

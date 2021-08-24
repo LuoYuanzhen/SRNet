@@ -1,6 +1,6 @@
 import torch
 
-from dataset_config import FUNC_MAP, ELITE_MAP, VALID_MAP, INTER_MAP
+from dataset_config import FUNC_MAP, ELITE_MAP, VALID_MAP, INTER_MAP, TEST_MAP
 from data_utils import io
 from exp_utils import encode_individual_from_json, draw_hidden_heat_compare_img, draw_decision_bound, \
     draw_output_compare_curves, draw_project_output_scatter
@@ -45,15 +45,15 @@ def output_curves():
     """draw the output curves, note that every variable x woule be the same as x[0]"""
     dir = '../dataset/'
     filename = 'kkk0'
-    json_file = f'../cgpnet_result/logs/{filename}_30log.json'
-    img_dir = '../cgpnet_result/imgs/'
+    json_file = f'../cgpnet_result/test_logs/{filename}_30log.json'
+    img_dir = '../cgpnet_result/test_imgs/'
 
     nn_dir = f"{dir}{filename}_nn/"
 
     true_inner = io.get_dataset(f'{dir}{filename}')
     n_var = true_inner.shape[1] - 1
 
-    x0_range = VALID_MAP[filename][0]
+    x0_range = TEST_MAP[filename][0]
     inter_range = INTER_MAP[filename][0]
     x = torch.linspace(x0_range[0], x0_range[1], 1000).unsqueeze(1)
     x = x.repeat(1, n_var)

@@ -165,24 +165,25 @@ class NewtonTrainer(OptimTrainer):
 
     def apply_optim(self, y_true, prediction, nn_layer):
         loss = self.l_func(y_true, prediction)
-        gradient, hessian_inv = self._get_inverse_hessian(loss, nn_layer.weight)
-        if hessian_inv is not None:
-            nn_layer.set_weight(nn_layer.weight - torch.matmul(gradient, hessian_inv))
-        if nn_layer.weight.grad is not None:
-            nn_layer.weight.grad.data.zero_()
+        for param in nn_layer.parameters():
+            gradient, hessian_inv = self._get_inverse_hessian(loss, param)
+            if hessian_inv is not None:
+                param.data = param.data - torch.matmul(gradient, hessian_inv)
+            if param.grad is not None:
+                param.grad.data.zero_()
 
     @staticmethod
-    def _get_inverse_hessian(loss, weight):
+    def _get_inverse_hessian(loss, param):
         """Calculate the inverse Hessian matrix"""
 
         # save the gradient
-        gradient = torch.autograd.grad(loss, weight, retain_graph=True, create_graph=True)[0]
+        gradient = torch.autograd.grad(loss, param, retain_graph=True, create_graph=True)[0]
         if not torch.all(torch.isfinite(gradient)):
             return None, None
 
         hessian = []
         for grad in gradient.view(-1):
-            order2_gradient = torch.autograd.grad(grad, weight, retain_graph=True)[0]  # weight.shape
+            order2_gradient = torch.autograd.grad(grad, param, retain_graph=True)[0]  # weight.shape
             hessian.append(order2_gradient.view(-1))
         hessian = torch.stack(hessian, dim=1)
 
@@ -215,7 +216,8 @@ class Evolution:
                  n_cols=5,
                  levels_back=None,
                  function_set=default_functions,
-                 n_eph=1
+                 n_eph=1,
+                 add_bias=False
                  ):
         self.neurons = None
         self.n_rows = n_rows
@@ -226,6 +228,8 @@ class Evolution:
 
         self.function_set = function_set
         self.n_eph = n_eph
+        self.add_bias = add_bias
+
         self.clas_net = clas_net
         self.clas_cgp = clas_cgp
 
@@ -237,7 +241,8 @@ class Evolution:
                                             n_cols=self.n_cols,
                                             levels_back=self.levels_back,
                                             function_set=self.function_set,
-                                            n_eph=self.n_eph)
+                                            n_eph=self.n_eph,
+                                            add_bias=self.add_bias)
 
     @staticmethod
     def _get_protected_loss(output, y):

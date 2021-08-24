@@ -69,10 +69,10 @@ class BaseCGPNet(nn.Module):
 
 
 class OneVectorCGPNet(BaseCGPNet):
-    def __init__(self, net_params, cgp_layers=None, nn_layers=None, add_bias=False, clas_cgp=OneExpOneOutCGPLayer):
+    def __init__(self, net_params, cgp_layers=None, nn_layers=None, clas_cgp=OneExpOneOutCGPLayer):
         super(OneVectorCGPNet, self).__init__(net_params, cgp_layers, clas_cgp=clas_cgp)
 
-        self.add_bias = add_bias
+        self.add_bias = self.net_params.add_bias
         self.nn_layers = []
         if nn_layers:
             self.nn_layers = nn_layers
@@ -119,16 +119,22 @@ class OneVectorCGPNet(BaseCGPNet):
         neurons = net_params.neurons
         n_layers = len(neurons)
 
+        add_bias = bias_list is not None
+        if net_params.add_bias != add_bias:
+            raise ValueError(f'net_params.add_bias is {net_params.add_bias} while bias_list is {bias_list}')
         if len(genes_list) != len(ephs_list) != len(w_list) and n_layers != len(genes_list) + 1:
             raise ValueError('length of genes, ephs, W should all be equal to n_layer - 1!')
+        if add_bias and len(bias_list) != len(w_list):
+            raise ValueError('length of bias, genes, ephs, W should all be eqaul to n_layer - 1!')
 
         cgp_layers, nn_layers = [], []
         for i in range(1, n_layers):
-            genes, ephs, W = genes_list[i - 1], torch.tensor(ephs_list[i - 1]), torch.tensor(w_list[i - 1])
-            bias = bias_list[i - 1] if bias_list else None
+            genes, ephs = genes_list[i - 1], torch.tensor(ephs_list[i - 1])
+            W, b = torch.tensor(w_list[i - 1]), torch.tensor(bias_list[i-1])
+            bias = bias_list[i - 1] if add_bias else None
 
             cgp_layers.append(_create_cgp_layer(clas_cgp, net_params, i, genes, ephs))
-            nn_layers.append(LinearLayer(weight=W, bias=bias))
+            nn_layers.append(LinearLayer(weight=W, bias=b, add_bias=add_bias))
 
         return cls(net_params, cgp_layers, nn_layers, clas_cgp=clas_cgp)
 
