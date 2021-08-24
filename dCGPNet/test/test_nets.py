@@ -150,8 +150,9 @@ def test_parameters():
                                5, 5,
                                None,
                                default_functions,
-                               1)
-    net = OneVectorCGPNet(net_params, add_bias=True)
+                               1,
+                               add_bias=True)
+    net = OneVectorCGPNet(net_params)
     print(net.get_net_parameters())
 
     mse = nn.MSELoss()

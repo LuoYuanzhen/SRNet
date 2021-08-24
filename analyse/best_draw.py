@@ -111,8 +111,8 @@ def output_curves_interpolate():
 def project_output_scatter():
     dir = '../dataset/'
     filename = 'kkk0'
-    json_file = f'../cgpnet_result/logs/{filename}_30log.json'
-    img_dir = '../cgpnet_result/imgs/'
+    json_file = f'../cgpnet_result/test_logs/{filename}_30log.json'
+    img_dir = '../cgpnet_result/test_imgs/'
 
     which = 'elite[0]'
     nn_dir = f"{dir}{filename}_nn/"
@@ -194,9 +194,9 @@ def test():
 
 if __name__ == '__main__':
     # hidden_heat_map()
-    output_curves()
+    # output_curves()
     # output_curves_interpolate()
-    # project_output_scatter()
+    project_output_scatter()
     # project_output_scatter_interpolate()
     # test()
 
