@@ -71,7 +71,7 @@ class CGPNet:
         f_cgps, w_cgps = [], []
         for i in range(1, n_layers):
             fgenes, fephs = f_genes_list[i - 1], torch.tensor(f_ephs_list[i - 1])
-            wgens, wephs = torch.tensor(w_genes_list[i - 1]), torch.tensor(w_ephs_list[i - 1])
+            wgens, wephs = w_genes_list[i - 1], torch.tensor(w_ephs_list[i - 1])
 
             f_cgps.append(create_cgp_by_net_params(neurons[i-1], 1, net_params, CGP, fgenes, fephs))
             w_cgps.append(create_cgp_by_net_params(neurons[i-1]+1, neurons[i], net_params, WeightCGP, wgens, wephs))

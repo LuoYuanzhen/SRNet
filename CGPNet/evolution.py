@@ -134,7 +134,11 @@ class Evolution:
                              [probabilistic_mutate_net(parent, prob)
                               for _ in range(n_pop - 1)]
 
-            parent = self.evolution_strategy(population, data_list, valid_data_list)
+            if parent is None:
+                parent = self.evolution_strategy(population, data_list, valid_data_list)
+            else:
+                new_parent = self.evolution_strategy(population[1:], data_list, valid_data_list)
+                parent = new_parent if new_parent.fitness < parent.fitness else parent
 
             conv_f.append(parent.fitness)
             _add_history_elite(history_elites, parent)

@@ -27,7 +27,7 @@ evo_params = {
     'n_eph': 1,
 
     'n_population': 200,
-    'n_generation': 100,
+    'n_generation': 5000,
     'prob': 0.4,
     'verbose': 10,
     'stop_fitness': 1e-5,
@@ -36,8 +36,8 @@ evo_params = {
     'validation': True
 }
 
-all_names = ['kkk0', 'kkk1']
-run_epoch = 3
+all_names = ['kkk5', 'feynman4', 'feynman5']
+run_epoch = 30
 
 
 vars_map = {

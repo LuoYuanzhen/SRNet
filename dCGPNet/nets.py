@@ -130,7 +130,8 @@ class OneVectorCGPNet(BaseCGPNet):
         cgp_layers, nn_layers = [], []
         for i in range(1, n_layers):
             genes, ephs = genes_list[i - 1], torch.tensor(ephs_list[i - 1])
-            W, b = torch.tensor(w_list[i - 1]), torch.tensor(bias_list[i-1])
+            W = torch.tensor(w_list[i - 1])
+            b = torch.tensor(bias_list[i-1]) if add_bias else None
 
             cgp_layers.append(_create_cgp_layer(clas_cgp, net_params, i, genes, ephs))
             nn_layers.append(LinearLayer(weight=W, bias=b, add_bias=add_bias))

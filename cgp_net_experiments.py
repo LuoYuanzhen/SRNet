@@ -166,7 +166,7 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
 if __name__ == '__main__':
 
     data_dir, xlabel = 'dataset/', 'K'
-    log_dir, img_dir = 'cgpnet_result/test_logs/', 'cgpnet_result/test_imgs/'
+    log_dir, img_dir = 'cgpnet_result/logs/', 'cgpnet_result/imgs/'
 
     io.mkdir(log_dir)
     io.mkdir(img_dir)
@@ -180,7 +180,7 @@ if __name__ == '__main__':
         'levels_back': None,
         'function_set': default_functions,
         'n_eph': 1,
-        'add_bias': True,
+        'add_bias': False,
 
         'n_population': 200,
         'n_generation': 5000,
@@ -196,7 +196,8 @@ if __name__ == '__main__':
     }
     trainer = clas_optim_map[evo_params['optim']](end_to_end=evo_params['end_to_end'])
 
-    all_names = ['kkk5', 'feynman4', 'feynman5']
+    all_names = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk4', 'kkk5',
+                 'feynman0', 'feynman1', 'feynman2', 'feynman3', 'feynman4', 'feynman5']
     run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel)
 
     # fname = 'kkk0'

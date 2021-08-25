@@ -16,7 +16,7 @@ def create_cgp_by_net_params(n_inputs, n_outputs, net_params, cls_cgp, genes=Non
         function_set=net_params.function_set,
         n_eph=net_params.n_eph
     )
-    return cls_cgp(cgp_params)
+    return cls_cgp(cgp_params, genes, ephs)
 
 
 class CGP:

@@ -3,14 +3,21 @@ import torch
 from dataset_config import FUNC_MAP, ELITE_MAP, VALID_MAP, INTER_MAP, TEST_MAP
 from data_utils import io
 from exp_utils import encode_individual_from_json, draw_hidden_heat_compare_img, draw_decision_bound, \
-    draw_output_compare_curves, draw_project_output_scatter
+    draw_output_compare_curves, draw_project_output_scatter, encode_wxn_indiv_from_json
 from neural_networks.nn_models import NN_MAP
 
 
-def _encode_individual(json_file, which):
+def _encode_individual():
     """higher level encode method"""
-    individual = encode_individual_from_json(json_file, which)
+    if version == 'wnx':
+        individual = encode_wxn_indiv_from_json(json_file, which)
+    else:
+        individual = encode_individual_from_json(json_file, which)
     return individual
+
+
+def _protected_log(output):
+    return torch.log(torch.abs(output))
 
 
 def hidden_heat_map():
@@ -20,12 +27,14 @@ def hidden_heat_map():
     true_inner = io.get_dataset(f'{data_dir}{filename}')
     x_inner = true_inner[:, :-1]
 
-    individual = _encode_individual(json_file, which)
+    individual = _encode_individual()
 
     srnn_layer_inner = individual(x_inner)
     nn_layer_inner = io.get_nn_datalist(nn_dir)[1:]
 
+    # print(srnn_layer_inner)
     print(len(srnn_layer_inner), len(nn_layer_inner))
+    # print(srnn_layer_inner)
     for i in range(len(srnn_layer_inner)):
         srnn_layer_inner[i] = srnn_layer_inner[i].detach()
 
@@ -55,7 +64,7 @@ def output_curves():
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     nn_output = nn(x)[-1].detach()
 
-    individual = _encode_individual(json_file, which)
+    individual = _encode_individual()
     srnn_output = individual(x)[-1].detach()
     ys = [true_output, nn_output, srnn_output]
     labels = ['True', 'MLP', 'CGPNet']
@@ -84,7 +93,7 @@ def output_curves_interpolate():
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     nn_output = nn(x)[-1].detach()
 
-    individual = _encode_individual(json_file, which)
+    individual = _encode_individual()
     srnn_output = individual(x)[-1].detach()
     ys = [true_output, nn_output, srnn_output]
     labels = ['True', 'MLP', 'CGPNet']
@@ -111,13 +120,18 @@ def project_output_scatter():
 
     n_var = x.shape[1]
 
-    individual = _encode_individual(json_file, which)
+    individual = _encode_individual()
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     func = FUNC_MAP[filename]
 
     srnn_output = individual(x)[-1].detach()
     true_output = func(*[x[:, i] for i in range(n_var)])
     nn_output = nn(x)[-1].detach()
+
+    if is_log:
+        srnn_output = _protected_log(srnn_output)
+        true_output = _protected_log(true_output)
+        nn_output = _protected_log(nn_output)
 
     draw_project_output_scatter(x, [true_output, nn_output, srnn_output], ['True', 'MLP', 'CGPNet'], inter_ranges)
 
@@ -134,11 +148,16 @@ def project_output_scatter_interpolate():
     true_output = FUNC_MAP[filename](*list([x[:, i] for i in range(x.shape[1])]))
 
     # top 10
-    individual = _encode_individual(json_file, which)
+    individual = _encode_individual()
     srnn_output = individual(x)[-1].detach()
 
     ys = [nn_output, true_output, srnn_output]
     labels = ['True', 'MLP', 'CGPNet']
+
+    if is_log:
+        for i in range(3):
+            ys[i] = _protected_log(ys[i])
+
     draw_project_output_scatter(x, ys, labels)
 
 
@@ -162,15 +181,18 @@ if __name__ == '__main__':
     data_dir = '../dataset/'
     filename = 'kkk5'
 
-    json_file = f'../cgpnet_result/test_logs/{filename}_30log.json'
-    img_dir = f'../cgpnet_result/test_imgs/'
+    json_file = f'../cgpnet_result/logs/{filename}_30log.json'
+    img_dir = f'../cgpnet_result/imgs/'
     which = 'elite[0]'
 
-    hidden_heat_map()
-    # output_curves()
+    version = 'none'
+    is_log = False
+
+    output_curves()
     # output_curves_interpolate()
     # project_output_scatter()
     # project_output_scatter_interpolate()
+    hidden_heat_map()
     # test()
 
 

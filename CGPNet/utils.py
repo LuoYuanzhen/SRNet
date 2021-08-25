@@ -1,3 +1,4 @@
+import json
 import random
 
 import func_timeout
@@ -127,12 +128,6 @@ class CGPFactory:
         return nodes
 
 
-@func_timeout.func_set_timeout(10)
-def timeout_simplify(expr):
-    sim_str = sp.simplify(expr)
-    return sim_str
-
-
 def pretty_net_exprs(net, var_names=None):
     """get final expressions w.r.t var_names"""
     net_input = net.neurons[0]
@@ -144,14 +139,11 @@ def pretty_net_exprs(net, var_names=None):
     for f_cgp, w_cgp in zip(net.f_cgps, net.w_cgps):
         f = f_cgp.get_expressions(input_vars=exprs)[0]
         w = w_cgp.get_expressions(input_vars=exprs)
-        print('f and ws:', f, w)
 
         exprs = layer_expression(f, w, to_list=False)
-        print('exprs:', exprs)
         for j in range(len(w)):
             i = sp.Symbol('i')
             exprs[j, 0] = exprs[j, 0].subs(i, j+1)
-        print('layer exprs:', exprs)
 
     return exprs.tolist()
 
