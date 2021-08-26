@@ -143,7 +143,11 @@ def pretty_net_exprs(net, var_names=None):
         exprs = var_names  # 1, n_var
         for linear, cgp in zip(net.nn_layers, net.cgp_layers):
             exprs = cgp.get_expressions(input_vars=exprs)
-            exprs = sp.Matrix(exprs) * linear.get_weight() + linear.get_bias().reshape(1, -1)
+            bias = linear.get_bias()
+            if isinstance(bias, int):
+                exprs = sp.Matrix(exprs) * linear.get_weight()
+            else:
+                exprs = sp.Matrix(exprs) * linear.get_weight() + bias.reshape(1, -1)
     else:
         # h_i = f_i(h_{i-1} * W)
         w_list = net.get_ws()

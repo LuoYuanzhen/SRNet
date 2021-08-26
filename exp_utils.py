@@ -122,7 +122,7 @@ def draw_hidden_heat_compare_img(filename, nndatas, srnndatas, title=""):
                 [ax.text(j, h, round(grid[h, j].item(), 1), ha='center', va='center', color='b') for j in range(grid.shape[1])]
 
         fig.subplots_adjust(hspace=0)
-        fig.suptitle(f'{title}-h{h_idx}')
+        fig.suptitle(f'({title}-h{h_idx})')
 
         cax = fig.add_axes([0.15, 0.05, 0.7, 0.03])
         fig.colorbar(im, cax=cax, orientation='horizontal')

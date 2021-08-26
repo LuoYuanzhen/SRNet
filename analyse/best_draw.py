@@ -41,7 +41,7 @@ def hidden_heat_map():
     draw_hidden_heat_compare_img(f'{img_dir}{filename}_{which}',
                                  nn_layer_inner[:-1],
                                  srnn_layer_inner[:-1],
-                                 title=filename)
+                                 title=snap)
 
 
 def output_curves():
@@ -71,7 +71,7 @@ def output_curves():
     draw_output_compare_curves(x[:, 0], ys, labels,
                                inter_range=inter_range,
                                n_var=n_var,
-                               title=f'{filename}',
+                               title=f'({snap})',
                                savepath=f'{img_dir}{filename}_curves_{which}.pdf')
 
 
@@ -98,7 +98,9 @@ def output_curves_interpolate():
     ys = [true_output, nn_output, srnn_output]
     labels = ['True', 'MLP', 'CGPNet']
     draw_output_compare_curves(x[:, 0], ys, labels,
-                               n_var=n_var)
+                               n_var=n_var,
+                               title=f'({snap})',
+                               savepath=f'{img_dir}{filename}_curves_{which}_interpolation.pdf')
 
 
 def project_output_scatter():
@@ -107,7 +109,7 @@ def project_output_scatter():
 
     x_inner = io.get_dataset(f'{data_dir}{filename}_nn/input')
 
-    x_range, inter_ranges = VALID_MAP[filename], INTER_MAP[filename]
+    x_range, inter_ranges = TEST_MAP[filename], INTER_MAP[filename]
     n_sample = x_inner.shape[0]
     x = []
     for i, ranges in enumerate(zip(x_range, inter_ranges)):
@@ -133,7 +135,9 @@ def project_output_scatter():
         true_output = _protected_log(true_output)
         nn_output = _protected_log(nn_output)
 
-    draw_project_output_scatter(x, [true_output, nn_output, srnn_output], ['True', 'MLP', 'CGPNet'], inter_ranges)
+    draw_project_output_scatter(x, [true_output, nn_output, srnn_output], ['True', 'MLP', 'CGPNet'], inter_ranges,
+                                title=f'({snap})',
+                                savepath=f'{img_dir}{filename}_scatter_{which}.pdf')
 
 
 def project_output_scatter_interpolate():
@@ -158,7 +162,9 @@ def project_output_scatter_interpolate():
         for i in range(3):
             ys[i] = _protected_log(ys[i])
 
-    draw_project_output_scatter(x, ys, labels)
+    draw_project_output_scatter(x, ys, labels,
+                                title=f'({snap})',
+                                savepath=f'{img_dir}{filename}_scatter_{which}_interpolation.pdf')
 
 
 def classifier_decisions_bounds():
@@ -179,19 +185,20 @@ def test():
 
 if __name__ == '__main__':
     data_dir = '../dataset/'
-    filename = 'kkk5'
+    filename = 'feynman2'
+    snap = 'F2'
 
-    json_file = f'../cgpnet_result/logs/{filename}_30log.json'
-    img_dir = f'../cgpnet_result/imgs/'
+    json_file = f'../cgpnet_result/b_logs/{filename}_30log.json'
+    img_dir = f'../cgpnet_result/b_imgs/'
     which = 'elite[0]'
 
     version = 'none'
     is_log = False
 
-    output_curves()
+    # output_curves()
     # output_curves_interpolate()
-    # project_output_scatter()
-    # project_output_scatter_interpolate()
+    project_output_scatter()
+    project_output_scatter_interpolate()
     hidden_heat_map()
     # test()
 

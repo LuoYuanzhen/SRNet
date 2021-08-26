@@ -15,12 +15,11 @@ class _Elites:
 
 
 def calculate_fitness_range():
-    directory = '/home/luoyuanzhen/cgpnet_result/log_v2/'
     fnames = [f'kkk{i}_30log.json' for i in range(6)] + [f'feynman{i}_30log.json' for i in range(6)]
 
     import json
     for fname in fnames:
-        file = f'{directory}{fname}'
+        file = f'{log_dir}{fname}'
         with open(file, 'r') as f:
             records = json.load(f)
 
@@ -38,10 +37,10 @@ def calculate_fitness_range():
 
 
 def sort_by_fitness():
-    file = '/home/luoyuanzhen/cgpnet_result/log_v2/kkk5_30log.json'
-
     import json
-    with open(file, 'r') as f:
+
+    json_file = f'{log_dir}{data_name}30log.json'
+    with open(json_file, 'r') as f:
         records = json.load(f)
 
     elite_keys = [key for key in records.keys() if key.startswith('elite')]
@@ -59,13 +58,11 @@ def sort_by_fitness():
 
 
 def see_fitness_trend():
-    file = '/home/luoyuanzhen/cgpnet_result/logs/'
-    data_name = 'feynman4'
     fname = f'{data_name}_30cfs'
-    save_name = f'/home/luoyuanzhen/cgpnet_result/img_v2/{data_name}_trend.pdf'
+    save_name = f'{save_dir}{data_name}_trend.pdf'
     is_log = True
 
-    cfs = io.get_dataset(f'{file}{fname}')
+    cfs = io.get_dataset(f'{log_dir}{fname}')
     if is_log:
         cfs = torch.log2(cfs)
         ylabel = 'log2(fitness)'
@@ -76,6 +73,10 @@ def see_fitness_trend():
 
 
 if __name__ == '__main__':
+    log_dir = '../cgpnet_result/b_logs/'
+    data_name = 'kkk0'
+
+    save_dir = '../cgpnet_result/b_imgs/'
     sort_by_fitness()
     # see_fitness_trend()
     # calculate_fitness_range()
