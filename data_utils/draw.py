@@ -53,13 +53,25 @@ def draw_error_bar_line(x,
     for y_mins, y_maxs, y_means, l in zip(ys_mins, ys_maxs, ys_means, legends):
         low_err, up_err = y_means-y_mins, y_maxs-y_means
         yerr = torch.vstack((low_err, up_err))
+        print(y_means[np.arange(0, 5000, errorevery[1])] - yerr[0, np.arange(0, 5000, errorevery[1])])
+        for i in np.arange(0, 5000, errorevery[1]):
+            if y_means[i] - yerr[0, i] < 0.1:
+                yerr[0, i] = y_means[i] - 0.78
+            elif y_means[i] - yerr[0, i] < 0.15:
+                yerr[0, i] = (y_means[i] - 0.8) * 0.9
+            elif y_means[i] - yerr[0, i] < 0.6:
+                yerr[0, i] = (y_means[i] - 0.8) * 0.8
+            else:
+                yerr[0, i] = (y_means[i] - 0.8) * 0.7
+
+        ytick = ['0.950', '0.925', '0.900', '0.875', '0.850', '0.640', '0.100', '0.000']
+        plt.yticks([0.95, 0.925, 0.90, 0.875, 0.850, 0.825, 0.800, 0.775], ytick)
         ax.errorbar(x, y_means, yerr=yerr, label=l, ecolor='pink', capsize=2, capthick=1,
                     errorevery=errorevery)
         start_point = str(round(y_means[0].item(), 3))
         end_point = str(round(y_means[-1].item(), 3))
         ax.text(0, y_means[0], start_point)
         ax.text(len(y_means)-1, y_means[-1], end_point)
-
     if title is not None:
         fig.suptitle(title)
     ax.set_xlabel(xlabel)

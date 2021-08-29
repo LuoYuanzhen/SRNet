@@ -19,7 +19,7 @@
       <paths name="workstation">
         <serverdata>
           <mappings>
-            <mapping deploy="/pyCharmProject/dCGPNet4NN" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/pyCharmProject/SRNet" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

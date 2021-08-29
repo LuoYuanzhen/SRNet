@@ -2,11 +2,11 @@ import sympy as sp
 import torch
 from torch import nn
 
-from dCGPNet.functions import default_functions
-from dCGPNet.methods import NewtonTrainer
-from dCGPNet.nets import MulExpCGPLayer, OneLinearCGPNet, OneExpCGPLayer, OneVectorCGPNet
-from dCGPNet.params import CGPParameters, NetParameters
-from dCGPNet.utils import pretty_net_exprs
+from CGPNet.functions import default_functions
+from CGPNet.methods import NewtonTrainer
+from CGPNet.nets import MulExpCGPLayer, OneLinearCGPNet, OneExpCGPLayer, OneVectorCGPNet
+from CGPNet.params import CGPParameters, NetParameters
+from CGPNet.utils import pretty_net_exprs
 from data_utils import io
 
 

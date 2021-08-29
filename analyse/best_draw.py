@@ -1,23 +1,24 @@
+import numpy as np
 import torch
+from lime import lime_tabular
 
-from dataset_config import FUNC_MAP, ELITE_MAP, VALID_MAP, INTER_MAP, TEST_MAP
+from CGPNet.utils import pretty_net_exprs
+from dataset_config import FUNC_MAP, INTER_MAP, TEST_MAP, vars_map
 from data_utils import io
 from exp_utils import encode_individual_from_json, draw_hidden_heat_compare_img, draw_decision_bound, \
-    draw_output_compare_curves, draw_project_output_scatter, encode_wxn_indiv_from_json
+    draw_output_compare_curves, draw_project_output_scatter
 from neural_networks.nn_models import NN_MAP
-
-
-def _encode_individual():
-    """higher level encode method"""
-    if version == 'wnx':
-        individual = encode_wxn_indiv_from_json(json_file, which)
-    else:
-        individual = encode_individual_from_json(json_file, which)
-    return individual
 
 
 def _protected_log(output):
     return torch.log(torch.abs(output))
+
+
+def lime_maple_predict(x, coefs):
+    x = x.numpy()
+    pred = np.dot(np.insert(x, 0, 1), coefs)
+
+    return torch.from_numpy(pred).reshape(-1, 1)
 
 
 def hidden_heat_map():
@@ -27,7 +28,7 @@ def hidden_heat_map():
     true_inner = io.get_dataset(f'{data_dir}{filename}')
     x_inner = true_inner[:, :-1]
 
-    individual = _encode_individual()
+    individual = encode_individual_from_json(json_file, which)
 
     srnn_layer_inner = individual(x_inner)
     nn_layer_inner = io.get_nn_datalist(nn_dir)[1:]
@@ -62,9 +63,9 @@ def output_curves():
     true_output = func(*[x[:, i] for i in range(n_var)])
 
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
-    nn_output = nn(x)[-1].detach()
 
-    individual = _encode_individual()
+    nn_output = nn(x)[-1].detach()
+    individual = encode_individual_from_json(json_file, which)
     srnn_output = individual(x)[-1].detach()
     ys = [true_output, nn_output, srnn_output]
     labels = ['True', 'MLP', 'CGPNet']
@@ -93,7 +94,7 @@ def output_curves_interpolate():
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     nn_output = nn(x)[-1].detach()
 
-    individual = _encode_individual()
+    individual = encode_individual_from_json(json_file, which)
     srnn_output = individual(x)[-1].detach()
     ys = [true_output, nn_output, srnn_output]
     labels = ['True', 'MLP', 'CGPNet']
@@ -122,7 +123,7 @@ def project_output_scatter():
 
     n_var = x.shape[1]
 
-    individual = _encode_individual()
+    individual = encode_individual_from_json(json_file, which)
     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[filename]).cpu()
     func = FUNC_MAP[filename]
 
@@ -151,8 +152,7 @@ def project_output_scatter_interpolate():
 
     true_output = FUNC_MAP[filename](*list([x[:, i] for i in range(x.shape[1])]))
 
-    # top 10
-    individual = _encode_individual()
+    individual = encode_individual_from_json(json_file, which)
     srnn_output = individual(x)[-1].detach()
 
     ys = [nn_output, true_output, srnn_output]
@@ -167,40 +167,49 @@ def project_output_scatter_interpolate():
                                 savepath=f'{img_dir}{filename}_scatter_{which}_interpolation.pdf')
 
 
-def classifier_decisions_bounds():
-
-    individual = encode_individual_from_json(json_file, which)
-    draw_decision_bound(data_dir, filename, individual, from_pmlb=False)
-
-
-def test():
+def get_latex_expression():
     import sympy as sp
 
-    m1, m2, r1 = sp.symbols('m1 m2 r1')
-    exp = 53.16*sp.cos(0.27*sp.log(0.015*r1/(m2 - 0.21))/(sp.log(0.015*r1/(m2 - 0.21)) + sp.cos(0.72*(m2 - 0.21)/r1))) - 41.11*sp.log(0.015*r1/(m2 - 0.21))/(sp.log(0.015*r1/(m2 - 0.21)) + sp.cos(0.72*(m2 - 0.21)/r1))
-    # str = '53.16*cos(0.27*log(0.015*r1/(m2 - 0.21))/(log(0.015*r1/(m2 - 0.21)) + cos(0.72*(m2 - 0.21)/r1))) - 41.11*log(0.015*r1/(m2 - 0.21))/(log(0.015*r1/(m2 - 0.21)) + cos(0.72*(m2 - 0.21)/r1))'
-    print(sp.pprint(exp))
-    print(sp.latex(exp))
+    datasets = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk4', 'kkk5',
+                'feynman0', 'feynman1', 'feynman2', 'feynman3', 'feynman4', 'feynman5']
+    import json
+
+    for dataset in datasets:
+        with open(f'../cgpnet_result/b_logs/{dataset}_30log.json', 'r') as f:
+            records = json.load(f)
+
+        individual = encode_individual_from_json(f'../cgpnet_result/b_logs/{dataset}_30log.json', 'elite[0]')
+        if dataset in vars_map.keys():
+            vars_name = vars_map[dataset][0]
+        else:
+            vars_name = None
+        final = pretty_net_exprs(individual, vars_name)
+
+        exp = sp.latex(final[0][0])
+
+        fitness = records['elite[0]']['fitness'][0]
+        strs = f"${dataset}$ & ${exp}$ & {fitness}\\\\"
+
+        print(strs)
 
 
 if __name__ == '__main__':
     data_dir = '../dataset/'
-    filename = 'feynman2'
-    snap = 'F2'
+    filename = 'feynman4'
+    snap = 'F4'
 
     json_file = f'../cgpnet_result/b_logs/{filename}_30log.json'
     img_dir = f'../cgpnet_result/b_imgs/'
     which = 'elite[0]'
 
-    version = 'none'
     is_log = False
 
     # output_curves()
     # output_curves_interpolate()
-    project_output_scatter()
-    project_output_scatter_interpolate()
-    hidden_heat_map()
-    # test()
+    # project_output_scatter()
+    # project_output_scatter_interpolate()
+    # hidden_heat_map()
+    get_latex_expression()
 
 
 

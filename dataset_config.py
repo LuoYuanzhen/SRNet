@@ -78,20 +78,13 @@ FUNC_MAP = {
     'feynman5': jackson2_11
 }
 
-ELITE_MAP = {
-    'kkk0': 'elite[39]',
-    'kkk1': 'elite[265]',
-    'kkk2': 'elite[251]',
-    'kkk3': 'elite[276]',
-    'kkk4': 'elite[164]',
-    'kkk5': 'elite[228]',
-
-    'feynman0': 'elite[159]',
-    'feynman1': 'elite[107]',
-    'feynman2': 'elite[83]',
-    'feynman3': 'elite[3]',
-    'feynman4': 'elite[2]',
-    'feynman5': 'elite[0]'
+vars_map = {
+    'feynman0': (['m0', 'v', 'c'], 'm'),
+    'feynman1': (['q1', 'q2', 'e', 'r'], 'F'),
+    'feynman2': (['G', 'm1', 'm2', 'r1', 'r2'], 'U'),
+    'feynman3': (['k', 'x'], 'U'),
+    'feynman4': (['G', 'c', 'm1', 'm2', 'r'], 'P'),
+    'feynman5': (['q', 'y', 'V', 'd', 'e'], 'F')
 }
 
 INTER_MAP = {

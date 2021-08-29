@@ -21,26 +21,6 @@ class MLP2(nn.Module):
         return output1, output2, outputs
 
 
-class OlderMLP2(nn.Module):
-    def __init__(self, num_input, num_output, n_hidden):
-        super(OlderMLP2, self).__init__()
-        self.fc1 = nn.Sequential(
-            nn.Linear(num_input, n_hidden),
-            nn.Tanh()
-        )
-        self.fc2 = nn.Sequential(
-            nn.Linear(n_hidden, n_hidden),
-            nn.Tanh()
-        )
-        self.fc3 = nn.Linear(n_hidden, num_output)
-
-    def forward(self, x):
-        output1 = self.fc1(x)
-        output2 = self.fc2(output1)
-        outputs = self.fc3(output2)
-        return output1, output2, outputs
-
-
 class MLP3(nn.Module):
     def __init__(self, num_input, num_output, n_hidden):
         super(MLP3, self).__init__()

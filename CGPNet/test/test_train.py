@@ -5,9 +5,9 @@ from torch import nn
 from torch.autograd import Variable
 from torch.nn import Parameter
 
-from dCGPNet.config import clas_optim_map, clas_net_map
-from dCGPNet.functions import default_functions
-from dCGPNet.params import NetParameters
+from CGPNet.config import clas_optim_map, clas_net_map
+from CGPNet.functions import default_functions
+from CGPNet.params import NetParameters
 from data_utils import io
 
 

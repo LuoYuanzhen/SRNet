@@ -7,11 +7,9 @@ import torch
 from matplotlib import pyplot as plt
 from torch import nn
 
-from CGPNet.nets import CGPNet
-from CGPNet.params import NetParameters as NetParametersV2
-from dCGPNet.config import clas_net_map, clas_cgp_map
-from dCGPNet.params import NetParameters as NetParametersV1
-from dCGPNet.utils import pretty_net_exprs
+from CGPNet.config import clas_net_map, clas_cgp_map
+from CGPNet.params import NetParameters
+from CGPNet.utils import pretty_net_exprs
 from data_utils import draw, io
 from dataset_config import VALID_MAP, TEST_MAP, FUNC_MAP
 
@@ -307,13 +305,15 @@ def encode_individual_from_json(json_file, elite_name):
         add_bias = evo_params['add_bias']
     else:
         add_bias = False
-    net_params = NetParametersV1(neurons=neurons,
-                                 n_rows=evo_params['n_rows'],
-                                 n_cols=evo_params['n_cols'],
-                                 levels_back=evo_params['levels_back'],
-                                 function_set=evo_params['function_set'],
-                                 n_eph=evo_params['n_eph'],
-                                 add_bias=add_bias)
+    net_params = NetParameters(
+        neurons=neurons,
+        n_rows=evo_params['n_rows'],
+        n_cols=evo_params['n_cols'],
+        levels_back=evo_params['levels_back'],
+        function_set=evo_params['function_set'],
+        n_eph=evo_params['n_eph'],
+        add_bias=add_bias
+    )
 
     clas_net = clas_net_map[evo_params['clas_net']]
     clas_cgp = clas_cgp_map[evo_params['clas_cgp']]
@@ -325,25 +325,4 @@ def encode_individual_from_json(json_file, elite_name):
                                clas_cgp=clas_cgp)
 
 
-def encode_wxn_indiv_from_json(json_file, elite_name):
-    with open(json_file, 'r') as f:
-        records = json.load(f)
-
-    evo_params = records['evolution_parameters']
-    indiv_dict = records[elite_name]
-    neurons = records['neurons']
-
-    net_params = NetParametersV2(neurons=neurons,
-                                 n_rows=evo_params['n_rows'],
-                                 n_cols=evo_params['n_cols'],
-                                 levels_back=evo_params['levels_back'],
-                                 function_set=evo_params['function_set'],
-                                 n_eph=evo_params['n_eph']
-                                 )
-
-    return CGPNet.encode_net(net_params,
-                             f_ephs_list=indiv_dict['f_constants'],
-                             f_genes_list=indiv_dict['f_genes'],
-                             w_ephs_list=indiv_dict['w_constants'],
-                             w_genes_list=indiv_dict['w_genes'])
 

@@ -5,7 +5,6 @@ kkk3:   1/(1+x^(-4))+1/(1+y^(-4))       (korns)	        [-5,5,0.4]          25
 kkk4:   30xydiv((x-10)zz) 		        (keijzer)	    x,z:U[-1,1]         1000
                                                         y:U[1,2]
 kkk5:   xy + sin((x-1)(y-1))   		    (keijzer)	    [-3,3]              20
-kkkbad: 0.23+14.2*（x+y）/(3z)        	(korns)	        [-50,50]            200
 
 feynman0:	I.10.7	related-theory-mass-velocity		3
 feynman1:	I.12.2	coulombs_law				4

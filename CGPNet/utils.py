@@ -1,4 +1,3 @@
-import json
 import random
 
 import func_timeout
@@ -128,52 +127,76 @@ class CGPFactory:
         return nodes
 
 
+@func_timeout.func_set_timeout(10)
+def timeout_simplify(expr):
+    sim_str = sp.simplify(expr)
+    return sim_str
+
+
 def pretty_net_exprs(net, var_names=None):
-    """get final expressions w.r.t var_names"""
+    """Forward funcs_list and w_list, get final expressions w.r.t var_names"""
     net_input = net.neurons[0]
-    # h_i = f_i(h{i-1}) * w_i(x, n)
-    if not var_names:
-        var_names = list([f'x{i}' for i in range(net_input)]) if net_input > 1 else ['x']
+    if net.__class__.__name__ == 'OneVectorCGPNet':
+        # h_i = f_i(h_{i-1}) * w
+        if not var_names:
+            var_names = list([f'x{i}' for i in range(net_input)]) if net_input > 1 else ['x']
+        exprs = var_names  # 1, n_var
+        for linear, cgp in zip(net.nn_layers, net.cgp_layers):
+            exprs = cgp.get_expressions(input_vars=exprs)
+            bias = linear.get_bias()
+            if isinstance(bias, int):
+                exprs = sp.Matrix(exprs) * linear.get_weight()
+            else:
+                exprs = sp.Matrix(exprs) * linear.get_weight() + bias.reshape(1, -1)
+    else:
+        # h_i = f_i(h_{i-1} * W)
+        w_list = net.get_ws()
+        funcs_list = net.get_cgp_expressions()
+        if not var_names:
+            var_names = list([f'x{i}' for i in range(w_list[0].shape[0])])
 
-    exprs = var_names  # 1, n_var
-    for f_cgp, w_cgp in zip(net.f_cgps, net.w_cgps):
-        f = f_cgp.get_expressions(input_vars=exprs)[0]
-        w = w_cgp.get_expressions(input_vars=exprs)
+        expr = sp.Matrix(var_names).T  # 1, n_var
 
-        exprs = layer_expression(f, w, to_list=False)
-        for j in range(len(w)):
-            i = sp.Symbol('i')
-            exprs[j, 0] = exprs[j, 0].subs(i, j+1)
+        for w, funcs in zip(w_list, funcs_list):
+            expr = layer_expression(expr, w, funcs)
+
+        exprs = []
+        for i in range(expr.shape[1]):
+            try:
+                exprs.append(str(timeout_simplify(expr[0, i])))
+            except func_timeout.exceptions.FunctionTimedOut:
+                exprs.append(str(expr[0, i]))
+        exprs = sp.Matrix(exprs).T
 
     return exprs.tolist()
 
 
-def layer_expression(f, ws, to_list=True):
-    if isinstance(f, str):
-        f = sp.Symbol(f)
+def layer_expression(inputs, w, funcs):
+    expr = inputs * sp.Matrix(w)  # 1, n_output
 
-    expr = f * sp.Matrix(ws)  # 1, n_output
+    # apply funcs to expr
+    for i in range(expr.shape[0]):
+        for j in range(expr.shape[1]):
+            funcj = funcs[j] if expr.shape[1] == len(funcs) else funcs[0]
+            if isinstance(funcj, float):
+                # a single float may occur
+                expr[i, j] = funcj
+                continue
+            if isinstance(funcj, str):
+                # a single symbol x may occor
+                funcj = sp.Symbol(funcj)
+            expr[i, j] = funcj.replace(sp.Symbol('x'), expr[i, j])
 
-    if to_list:
-        return expr.tolist()
     return expr
 
 
 def probabilistic_mutate_net(parent, probability):
-    f_gidx_list, f_mutatant_genes_list = [], []
-    w_gidx_list, w_mutatant_genes_list = [], []
-
-    for f_cgp, w_cgp in zip(parent.f_cgps, parent.w_cgps):
-        f_gidxs, f_mutant_genes = _probabilistic_mutate_genes(f_cgp, probability)
-        w_gidxs, w_mutant_genes = _probabilistic_mutate_genes(w_cgp, probability)
-
-        f_gidx_list.append(f_gidxs)
-        f_mutatant_genes_list.append(f_mutant_genes)
-
-        w_gidx_list.append(w_gidxs)
-        f_mutatant_genes_list.append(w_mutant_genes)
-
-    return parent.generate_offspring(f_gidx_list, w_gidx_list, f_mutatant_genes_list, w_mutatant_genes_list)
+    gidx_list, mutatant_genes_list = [], []
+    for cgp in parent.cgp_layers:
+        gidxs, mutant_genes = _probabilistic_mutate_genes(cgp, probability)
+        gidx_list.append(gidxs)
+        mutatant_genes_list.append(mutant_genes)
+    return parent.generate_offspring(gidx_list, mutatant_genes_list)
 
 
 def _probabilistic_mutate_genes(cgp, probability):
@@ -200,6 +223,15 @@ def partition_n_jobs(n_jobs, n_pop):
     idx_starts = np.cumsum(np_per_job)
 
     return idx_starts.tolist()
+
+
+def parallel_optimize(sub_pop, data_list, trainer):
+    new_subps = []
+    for indiv in sub_pop:
+        trainer.train(indiv, data_list)
+        new_subps.append(indiv)
+
+    return new_subps
 
 
 def report(indiv=None, gen=None):

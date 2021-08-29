@@ -1,6 +1,6 @@
-from dCGPNet.layers import OneExpOneOutCGPLayer, MulExpCGPLayer, OneExpCGPLayer
-from dCGPNet.methods import LBFGSTrainer, SGDTrainer, PSOTrainer, NewtonTrainer
-from dCGPNet.nets import OneVectorCGPNet, OneLinearCGPNet, DoubleLinearCGPNet
+from CGPNet.layers import OneExpOneOutCGPLayer, MulExpCGPLayer, OneExpCGPLayer
+from CGPNet.methods import LBFGSTrainer, SGDTrainer, PSOTrainer, NewtonTrainer
+from CGPNet.nets import OneVectorCGPNet, OneLinearCGPNet, DoubleLinearCGPNet
 
 
 clas_net_map = {

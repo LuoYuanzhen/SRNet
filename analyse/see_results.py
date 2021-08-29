@@ -60,23 +60,17 @@ def sort_by_fitness():
 def see_fitness_trend():
     fname = f'{data_name}_30cfs'
     save_name = f'{save_dir}{data_name}_trend.pdf'
-    is_log = True
 
     cfs = io.get_dataset(f'{log_dir}{fname}')
-    if is_log:
-        cfs = torch.log2(cfs)
-        ylabel = 'log2(fitness)'
-    else:
-        ylabel = 'fitness'
     # 30, 5000
-    exp_utils.draw_f_trend(save_name, cfs.shape[0], [cfs.T.tolist()], legends=['srnn'], title=None, ylabel=ylabel)
+    exp_utils.draw_f_trend(save_name, cfs.shape[0], [cfs.T.tolist()], legends=['srnn'], title=None)
 
 
 if __name__ == '__main__':
     log_dir = '../cgpnet_result/b_logs/'
-    data_name = 'kkk0'
+    data_name = 'kkk1'
 
     save_dir = '../cgpnet_result/b_imgs/'
-    sort_by_fitness()
-    # see_fitness_trend()
+    # sort_by_fitness()
+    see_fitness_trend()
     # calculate_fitness_range()

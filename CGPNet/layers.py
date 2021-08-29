@@ -1,25 +1,14 @@
 from functools import reduce
 
+import numpy as np
 import torch
+from torch import nn
+from torch.nn import Parameter
 
-from CGPNet.params import CGPParameters
 from CGPNet.utils import CGPFactory
 
 
-def create_cgp_by_net_params(n_inputs, n_outputs, net_params, cls_cgp, genes=None, ephs=None):
-    cgp_params = CGPParameters(
-        n_inputs=n_inputs,
-        n_outputs=n_outputs,
-        n_rows=net_params.n_rows,
-        n_cols=net_params.n_cols,
-        levels_back=net_params.levels_back,
-        function_set=net_params.function_set,
-        n_eph=net_params.n_eph
-    )
-    return cls_cgp(cgp_params, genes, ephs)
-
-
-class CGP:
+class BaseCGP:
     def __init__(self, params, genes=None, ephs=None):
         factory = CGPFactory(params)
         if genes is None:
@@ -154,33 +143,36 @@ class CGP:
 
         return results
 
-    def generate_offspring(self, gidxs, mutant_genes):
+    def generate_clas_offspring(self, gidxs, mutant_genes, cls):
         genes = self.genes[:]
         for gidx, mutant in zip(gidxs, mutant_genes):
             genes[gidx] = mutant
-        return CGP(self.params, genes, self.ephs)
+        return cls(self.params, genes, self.ephs)
+
+    def generate_offspring(self, gidxs, mutant_genes):
+        return self.generate_clas_offspring(gidxs, mutant_genes, BaseCGP)
 
 
-class WeightCGP(CGP):
-    def __init__(self, params, genes=None, ephs=None):
-        # remember the (params.n_inputs-1)th input node would be seen as i that range from integers [1, 2, ..., n_outputs]
-        super(WeightCGP, self).__init__(params, genes, ephs)
+class OneExpOneOutCGPLayer(BaseCGP):
+    """v1 version"""
+
+    def generate_offspring(self, gidxs, mutant_genes):
+        return super(OneExpOneOutCGPLayer, self).generate_clas_offspring(gidxs, mutant_genes, OneExpOneOutCGPLayer)
+
+    def clone(self):
+        return OneExpOneOutCGPLayer(self.params, self.genes, self.ephs)
+
+
+class MulExpCGPLayer(BaseCGP):
+    """overwrite the __call__ method, apply self.n_outputs different functions to x's each dimension"""
 
     def __call__(self, x):
-        """weight CGP call way. Seeing x[:, i] as a single variable, but x[:, -1] as range from integer [1, 2, ..., n_outputs]
-        INPUT: Make sure x.shape[1] == self.n_inputs
-        OUTPUT: y where y.shape[1] == self.n_outputs """
-        for path in self.active_paths:
-            for gene in path:
+        """here applys different functions to each dimension of x e.g. f0(x[:, 0]), f1(x[:, 1])..."""
+        for output_idx in range(len(self.active_paths)):
+            for gene in self.active_paths[output_idx]:
                 node = self.nodes[gene]
                 if node.is_input:
-                    if node.no >= self.n_inputs:
-                        node.value = self.ephs[node.no - self.n_inputs]
-                    elif node.no == self.n_inputs-1:
-                        # what if we make its output as multiple dims?
-                        node.value = torch.tensor([integer for integer in range(1, self.n_outputs+1)])
-                    else:
-                        node.value = x[:, node.no].reshape(-1, 1)
+                    node.value = self.ephs[node.no - self.n_inputs] if node.no >= self.n_inputs else x[:, output_idx]
                 elif node.is_output:
                     node.value = self.nodes[node.inputs[0]].value
                 else:
@@ -189,50 +181,95 @@ class WeightCGP(CGP):
                     node.value = f(*operants)
 
         outputs = []
-        for i, node in enumerate(self.nodes[-self.n_outputs:]):
-            shape = node.value.shape
-            if len(shape) == 0:
-                # only ephs
-                outputs.append(node.value.repeat(x.shape[0]).reshape(-1, 1))
-            elif len(shape) == 1:
-                # only integers or integers operate with ephs
-                outputs.append(node.value[i].repeat(x.shape[0]).reshape(-1, 1))
+        for node in self.nodes[-self.n_outputs:]:
+            if len(node.value.shape) == 0:
+                outputs.append(node.value.repeat(x.shape[0]))
             else:
-                if shape[1] > 1:
-                    # x operate with integer
-                    outputs.append(node.value[:, i:i+1])
-                else:
-                    outputs.append(node.value)
+                outputs.append(node.value)
 
-        return torch.hstack(outputs)
+        return torch.stack(outputs, dim=1)
 
-    def get_expressions(self, input_vars=None, symbol_constant=False):
-        """return a list of self.n_outputs formulas"""
-        if input_vars is not None and len(input_vars) != self.n_inputs-1:
-            raise ValueError(f'Expect len(input_vars)={self.n_inputs-1}, but got {len(input_vars)}')
+    def generate_offspring(self, gidxs, mutant_genes):
+        return super(MulExpCGPLayer, self).generate_clas_offspring(gidxs, mutant_genes, MulExpCGPLayer)
 
-        symbol_stack = []
-        results = []
-        for path in self.active_paths:
-            for i_node in path:
-                node = self.nodes[i_node]
+
+class OneExpCGPLayer(BaseCGP):
+    def __call__(self, x):
+        """here applys same functions to each dimension of x e.g. f(x[:, 0]), f(x[:, 1])..."""
+        for output_idx in range(len(self.active_paths)):
+            for gene in self.active_paths[output_idx]:
+                node = self.nodes[gene]
                 if node.is_input:
-                    if i_node >= self.n_inputs:
-                        c = f'c{i_node - self.n_inputs}' if symbol_constant \
-                            else self.ephs[i_node - self.n_inputs].item()
-                    elif i_node == self.n_inputs-1:
-                        c = 'i'
-                    else:
-                        if input_vars is None:
-                            c = f'x{i_node}' if self.n_inputs > 1 else 'x'
-                        else:
-                            c = input_vars[i_node]
-                    symbol_stack.append(c)
+                    node.value = self.ephs[node.no - self.n_inputs] if node.no >= self.n_inputs else x
                 elif node.is_output:
-                    results.append(symbol_stack.pop())
+                    node.value = self.nodes[node.inputs[0]].value
                 else:
                     f = node.func
-                    # get a sympy symbolic expression.
-                    symbol_stack.append(f(*[symbol_stack.pop() for _ in range(f.arity)], is_pt=False))
+                    operants = [self.nodes[node.inputs[i]].value for i in range(node.arity)]
+                    node.value = f(*operants)
 
-        return results
+        # Since OneExpCGP only has one output node
+        output_node = self.nodes[-1]
+        if len(output_node.value.shape) == 0:
+            return output_node.value.repeat(x.shape[0], x.shape[1])
+
+        return output_node.value
+
+    def generate_offspring(self, gidxs, mutant_genes):
+        return super(OneExpCGPLayer, self).generate_clas_offspring(gidxs, mutant_genes, OneExpCGPLayer)
+
+
+class LinearLayer(nn.Module):
+    def __init__(self, in_features=None, out_features=None, weight=None, bias=None, add_bias=False):
+        super(LinearLayer, self).__init__()
+        self.add_bias = add_bias
+        if weight is not None:
+            self.weight = Parameter(weight)
+        else:
+            self.weight = Parameter(torch.normal(mean=0., std=1., size=(in_features, out_features)))
+        if bias is not None:
+            self.bias = Parameter(bias)
+            self.add_bias = True
+        else:
+            if add_bias:
+                self.bias = Parameter(torch.normal(mean=0., std=1., size=(out_features,)))
+
+    def forward(self, x):
+        if self.add_bias:
+            return torch.matmul(x, self.weight) + self.bias
+
+        return torch.matmul(x, self.weight)
+
+    def set_weight(self, weight):
+        if weight.shape != self.weight.shape:
+            raise ValueError(f"expected weight's shape {self.weight.shape}, but got {weight.shape}")
+        if isinstance(weight, np.ndarray):
+            weight = torch.from_numpy(weight).float()
+        elif isinstance(weight, list):
+            weight = torch.tensor(weight).float()
+
+        self.weight = Parameter(weight)
+
+    def set_bias(self, bias):
+        if bias.shape != self.bias.shape:
+            raise ValueError(f"expected bias's shape {self.bias.shape}, but got {bias.shape}")
+        if isinstance(bias, np.ndarray):
+            bias = torch.from_numpy(bias).float()
+        elif isinstance(bias, list):
+            bias = torch.tensor(bias).float()
+
+        self.weight = Parameter(bias)
+
+    def get_weight(self):
+        return self.weight.detach()
+
+    def get_bias(self):
+        if self.add_bias:
+            return self.bias.detach()
+        return 0
+
+    def clone(self):
+        if self.add_bias:
+            return LinearLayer(weight=self.weight.detach().clone(), bias=self.bias.detach().clone())
+        return LinearLayer(weight=self.weight.detach().clone())
+

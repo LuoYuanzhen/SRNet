@@ -7,6 +7,7 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_squared_error
 import numpy as np
 
+
 class MAPLE:
  
     def __init__(self, X_train, MR_train, X_val, MR_val, fe_type = "rf", n_estimators = 200, max_features = 0.5, min_samples_leaf = 10, regularization = 0.001):

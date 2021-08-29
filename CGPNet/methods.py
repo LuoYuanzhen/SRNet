@@ -1,5 +1,6 @@
 import itertools
 import random
+from copy import deepcopy
 from functools import partial
 
 import numpy as np
@@ -9,9 +10,9 @@ from joblib import Parallel, delayed
 from torch import nn
 from torch.autograd import Variable
 
-from dCGPNet.functions import default_functions
-from dCGPNet.params import NetParameters
-from dCGPNet.utils import partition_n_jobs, report, probabilistic_mutate_net, parallel_optimize
+from CGPNet.functions import default_functions
+from CGPNet.params import NetParameters
+from CGPNet.utils import partition_n_jobs, report, probabilistic_mutate_net, parallel_optimize
 
 
 class OptimTrainer:
@@ -281,7 +282,7 @@ class Evolution:
                 indiv.fitness_list.append(loss)
             indiv.fitness = self._calculate_weighted_fitness(indiv.fitness_list)
 
-    def _apply_evolution_strategy(self, population, trainer, data_list, valid_data_list):
+    def _apply_evolution_strategy(self, population, trainer, data_list, valid_data_list, last_parent=None):
         parent = None
         if self.evo_strategy == 'fitness_select':
             for indiv in population:
@@ -291,19 +292,33 @@ class Evolution:
         elif self.evo_strategy == 'chromosome_select':
             cgp_layers, nn_layers = [], []
             num_chrom = len(population[0].cgp_layers)
-            chrom_input = data_list[0]
+
+            newton_input = data_list[0]
+            if valid_data_list is not None:
+                valid_input = torch.vstack((data_list[0], valid_data_list[0]))
+            else:
+                valid_input = newton_input
+
+            part_of_parent = False
+            if last_parent:
+                # there is an old parent and assume the 'super' individual consist of all the chromosomes from old parent
+                part_of_parent = True
+                population = [last_parent] + population
 
             # Training each chromosome one by one, and select a best parent.
             for chrom_idx in range(num_chrom):
                 # for each chromosome, apply Newton method repectively.
                 chrom_losses = []
-                for indiv in population:
+                for i, indiv in enumerate(population):
                     chrom_cgp, chrom_linear = indiv.cgp_layers[chrom_idx], indiv.nn_layers[chrom_idx]
-                    hi = data_list[chrom_idx+1]
 
-                    trainer.apply_optim(chrom_linear(chrom_cgp(chrom_input)), hi, chrom_linear)
+                    if not part_of_parent or i != 0:
+                        #  when the indiv is last parent and the 'super' individual still consist of all
+                        #  parts from old parent, we don't apply newton.
+                        trainer.apply_optim(chrom_linear(chrom_cgp(newton_input)), data_list[chrom_idx+1], chrom_linear)
 
-                    his = chrom_linear(chrom_cgp(chrom_input))
+                    his = chrom_linear(chrom_cgp(valid_input))
+                    hi = torch.vstack((data_list[chrom_idx+1], valid_data_list[chrom_idx+1]))
                     chrom_losses.append(self._get_protected_loss(his, hi))
                 # choose the best chromosome from all (chrom_idx)th chromosomes of all individuals.
                 best_idx = np.argmin(chrom_losses)
@@ -314,7 +329,13 @@ class Evolution:
                 cgp_layers.append(best_cgp)
                 nn_layers.append(best_linear)
 
-                chrom_input = best_linear(best_cgp(chrom_input))
+                newton_input = best_linear(best_cgp(newton_input))
+                valid_input = best_linear(best_cgp(valid_input))
+
+                if part_of_parent and best_idx != 0:
+                    # the 'super' not long consist of all the parts of last parent
+                    part_of_parent = False
+
             # choose any individual in the population would be ok, since its layers would be replaced in the end.
             parent = population[0]
             # simpily replace its layers and fitness
@@ -400,7 +421,8 @@ class Evolution:
             if not parent:
                 parent = self._apply_evolution_strategy(population, trainer, data_list, valid_data_list)
             else:
-                new_parent = self._apply_evolution_strategy(population[1:], trainer, data_list, valid_data_list)
+                last_parent = parent.clone()
+                new_parent = self._apply_evolution_strategy(population[1:], trainer, data_list, valid_data_list, last_parent)
                 parent = new_parent if new_parent.fitness < parent.fitness else parent
 
             conv_f.append(parent.fitness)

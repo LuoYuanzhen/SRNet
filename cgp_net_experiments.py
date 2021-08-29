@@ -1,29 +1,18 @@
 """Experiment codes for CGPNet training."""
 import datetime
 import json
-import sys
 
 import joblib
 import numpy as np
-import torch
 from joblib import Parallel, delayed
 
-from dCGPNet.config import clas_net_map, clas_cgp_map, clas_optim_map
-from dCGPNet.functions import default_functions
-from dCGPNet.methods import Evolution
+from CGPNet.config import clas_net_map, clas_cgp_map, clas_optim_map
+from CGPNet.functions import default_functions
+from CGPNet.methods import Evolution
 from data_utils import io, draw
-from dataset_config import INTER_MAP, VALID_MAP
+from dataset_config import INTER_MAP, VALID_MAP, vars_map
 from exp_utils import save_cfs, draw_f_trend, individual_to_dict, generate_domains_data
 from neural_networks.nn_models import NN_MAP
-
-vars_map = {
-    'feynman0': (['m0', 'v', 'c'], 'm'),
-    'feynman1': (['q1', 'q2', 'e', 'r'], 'F'),
-    'feynman2': (['G', 'm1', 'm2', 'r1', 'r2'], 'U'),
-    'feynman3': (['k', 'x'], 'U'),
-    'feynman4': (['G', 'c', 'm1', 'm2', 'r'], 'P'),
-    'feynman5': (['q', 'y', 'V', 'd', 'e'], 'F')
-}
 
 
 def _train_process(controller, trainer, data_list, eps, msg, valid_data_list):
@@ -127,6 +116,7 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
             valid_input = generate_domains_data(num_sample, VALID_MAP[fname])
 
             valid_data_list = [valid_input] + list(nn(valid_input))
+
         srnn_cfs, srnn_fs, srnn_ts, srnn_elites = run_a_dataset(trainer,
                                                                 evo_params,
                                                                 nn_data_list,
@@ -165,58 +155,41 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
 
 if __name__ == '__main__':
 
-    data_dir, xlabel = 'dataset/', 'K'
-    log_dir, img_dir = 'cgpnet_result/logs/', 'cgpnet_result/imgs/'
+    data_dir, xlabel = 'dataset/', 'F'
+    log_dir, img_dir = 'cgpnet_result/b_logs/', 'cgpnet_result/b_imgs/'
 
     io.mkdir(log_dir)
     io.mkdir(img_dir)
 
     evo_params = {
-        'clas_net': 'OneVectorCGPNet',
-        'clas_cgp': 'OneExpOneOutCGPLayer',
-        'optim': 'Newton',
+        'clas_net': 'OneVectorCGPNet',  # do not change
+        'clas_cgp': 'OneExpOneOutCGPLayer',  # do not change
+        'optim': 'Newton',  # do not change
         'n_rows': 5,
         'n_cols': 5,
         'levels_back': None,
         'function_set': default_functions,
         'n_eph': 1,
-        'add_bias': False,
+        'add_bias': True,  # do not change
 
         'n_population': 200,
-        'n_generation': 5000,
+        'n_generation': 100,
         'prob': 0.4,
         'verbose': 10,
         'stop_fitness': 1e-5,
         'random_state': None,
         'n_jobs': 1,
-        'n_epoch': 0,
-        'end_to_end': False,
-        'validation': True,
-        'evolution_strategy': 'chromosome_select'
+        'n_epoch': 0,  # useless, but do not delete
+        'end_to_end': False,  # do not change
+        'validation': True,  # do not change
+        'evolution_strategy': 'chromosome_select'  # do not change
     }
     trainer = clas_optim_map[evo_params['optim']](end_to_end=evo_params['end_to_end'])
 
     all_names = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk4', 'kkk5',
                  'feynman0', 'feynman1', 'feynman2', 'feynman3', 'feynman4', 'feynman5']
-    run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel)
+    run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel, run_n_epoch=30)
 
-    # fname = 'kkk0'
-    # data_list = io.get_nn_datalist(f'{data_dir}{fname}_nn/')
-    #
-    # nn_dir = f'{data_dir}{fname}_nn/'
-    # nn_data_list = io.get_nn_datalist(nn_dir)
-    #
-    # valid_data_list = None
-    # if evo_params['validation']:
-    #     # generate extrapolation data for model selection
-    #     nn = io.load_nn_model(f'{nn_dir}nn_module.pt', load_type='dict', nn=NN_MAP[fname]).cpu()
-    #
-    #     num_sample = max(nn_data_list[0].shape[0] // 10 * 3, 10)  # train:valid = 7:3
-    #     valid_input = generate_validation_data(num_sample, VALID_MAP[fname])
-    #
-    #     valid_data_list = [valid_input] + list(nn(valid_input))
-    #
-    # run_a_dataset(trainer, evo_params, data_list, 1, fname, valid_data_list=valid_data_list, log_dir=log_dir, img_dir=img_dir)
 
 
 

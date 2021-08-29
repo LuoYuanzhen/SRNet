@@ -1,7 +1,7 @@
 import sympy as sp
 import torch
 
-from dCGPNet.functions import function_map
+from CGPNet.functions import function_map
 
 
 def test_function():
