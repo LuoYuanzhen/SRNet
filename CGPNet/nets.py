@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 import torch
 from torch import nn
 
@@ -86,8 +84,8 @@ class OneVectorCGPNet(BaseCGPNet):
         layer_output = x
         outputs = []
 
-        for i in range(0, self.n_layer - 1):
-            layer_output = self.nn_layers[i](self.cgp_layers[i](layer_output))
+        for cgp_layer, nn_layer in zip(self.cgp_layers, self.nn_layers):
+            layer_output = nn_layer(cgp_layer(layer_output))
             outputs.append(layer_output)
 
         return outputs
@@ -155,55 +153,40 @@ class OneVectorCGPNet(BaseCGPNet):
         return OneVectorCGPNet(self.net_params, cgp_layers, nn_layers)
 
 
-class OneLinearCGPNet(BaseCGPNet):
-    """Using MulExpCGPLayer as CGP layer.
-    Each layer's output is like: [f0(x*w^T), f1(x*w^T), ...]"""
-    def __init__(self, net_params, cgp_layers=None, nn_layers=None, add_bias=False, clas_cgp=MulExpCGPLayer):
-        super(OneLinearCGPNet, self).__init__(net_params, cgp_layers, clas_cgp=clas_cgp)
+class LinearOutputCGPNet(OneVectorCGPNet):
+    def __init__(self, net_params, cgp_layers=None, nn_layers=None, last_nn_layer=None, clas_cgp=OneExpOneOutCGPLayer):
+        # knowing that len(nn_layers) is equal to len(cgp_layers)
+        # we first ignore the last layer (output layer)
+        neurons = net_params.neurons[:]
+        net_params.neurons = net_params.neurons[:-1]
+        super(LinearOutputCGPNet, self).__init__(net_params, cgp_layers, nn_layers, clas_cgp=clas_cgp)
 
-        self.add_bias = add_bias
-        self.nn_layers = []
-        if nn_layers:
-            self.nn_layers = nn_layers
-        else:
-            for i in range(1, self.n_layer):
-                self.nn_layers.append(LinearLayer(self.neurons[i - 1], self.neurons[i], add_bias=self.add_bias))
+        # alfter construct the cgp_layers and nn_layers, we can set the params back
+        self.net_params.neurons = neurons
+        self.neurons = neurons
+
+        self.last_nn_layer = last_nn_layer
+        # then we construct our linear output layer
+        if self.last_nn_layer is None:
+            self.last_nn_layer = LinearLayer(self.neurons[-2], self.neurons[-1], add_bias=self.add_bias)
 
     def __call__(self, x):
-        layer_output = self.cgp_layers[0](self.nn_layers[0](x))
-        outputs = [layer_output]
-
-        for i in range(1, self.n_layer-1):
-            layer_output = self.cgp_layers[i](self.nn_layers[i](layer_output))
-            outputs.append(layer_output)
-
+        outputs = super(LinearOutputCGPNet, self).__call__(x)
+        outputs.append(self.last_nn_layer(outputs[-1]))
         return outputs
-
-    def set_ws(self, w_list):
-        if len(w_list) != self.n_layer - 1:
-            raise ValueError(f"expected w_list'length {self.n_layer-1}, but got {len(w_list)}")
-        for i, w in enumerate(w_list):
-            self.nn_layers[i].set_weight(w)
 
     def get_ws(self):
         """get all the weights in nn_layers, and make them detach, shape: (n_input, n_output)"""
-        w_list = []
-        for layer in self.nn_layers:
-            w_list.append(layer.get_weight())
+        w_list = super(LinearOutputCGPNet, self).get_ws().append(self.last_nn_layer.get_weight())
         return w_list
 
     def get_bias(self):
         """get all the biases in nn_layers, and make them detach, shape: (n_output, 1)"""
-        bias_list = []
-        if self.add_bias:
-            for layer in self.nn_layers:
-                bias_list.append(layer.get_bias().view(1, -1))
+        bias_list = super(LinearOutputCGPNet, self).get_bias().append(self.last_nn_layer.get_bias())
         return bias_list
 
     def get_net_parameters(self):
-        parameters = []
-        for layer in self.nn_layers:
-            parameters += list(layer.parameters())
+        parameters = super(LinearOutputCGPNet, self).get_net_parameters().append(self.last_nn_layer.parameters())
         return parameters
 
     @classmethod
@@ -214,93 +197,41 @@ class OneLinearCGPNet(BaseCGPNet):
         neurons = net_params.neurons
         n_layers = len(neurons)
 
-        if len(genes_list) != len(ephs_list) != len(w_list) and n_layers != len(genes_list) + 1:
-            raise ValueError('length of genes, ephs, W should all be equal to n_layer - 1!')
+        add_bias = bias_list is not None
+        if net_params.add_bias != add_bias:
+            raise ValueError(f'net_params.add_bias is {net_params.add_bias} while bias_list is {bias_list}')
+        if len(genes_list) != len(ephs_list) != len(w_list)-1 and n_layers != len(genes_list) + 2:
+            raise ValueError('length of genes, ephs should all be equal to n_layer - 2, and the length of w_list should be equal to n_layer-1!')
+        if add_bias and len(bias_list) != len(w_list):
+            raise ValueError('length of bias, genes, ephs, W should all be eqaul to n_layer - 1!')
 
         cgp_layers, nn_layers = [], []
-        for i in range(1, n_layers):
-            genes, ephs, W = genes_list[i - 1], torch.tensor(ephs_list[i - 1]), torch.tensor(w_list[i - 1])
-            bias = bias_list[i - 1] if bias_list else None
+        for i in range(1, n_layers-1):
+            genes, ephs = genes_list[i - 1], torch.tensor(ephs_list[i - 1])
+            W = torch.tensor(w_list[i - 1])
+            b = torch.tensor(bias_list[i-1]) if add_bias else None
 
             cgp_layers.append(_create_cgp_layer(clas_cgp, net_params, i, genes, ephs))
-            nn_layers.append(LinearLayer(weight=W, bias=bias))
+            nn_layers.append(LinearLayer(weight=W, bias=b, add_bias=add_bias))
 
-        return cls(net_params, cgp_layers, nn_layers, clas_cgp=clas_cgp)
+        # construct last nn layer:
+        w = torch.tensor(w_list[-1])
+        b = torch.tensor(bias_list[-1]) if add_bias else None
+        last_nn_layer = LinearLayer(weight=w, bias=b, add_bias=add_bias)
+
+        return cls(net_params, cgp_layers, nn_layers, last_nn_layer, clas_cgp=clas_cgp)
 
     def generate_offspring(self, gidxs_list, mutant_genes_list):
-        cgp_layers, nn_layers = [], []
+        cgp_layers = []
+        nn_layers = []
         for n, cgp, gidxs, mutant_genes in zip(self.nn_layers, self.cgp_layers, gidxs_list, mutant_genes_list):
             cgp_layers.append(cgp.generate_offspring(gidxs, mutant_genes))
             nn_layers.append(n.clone())
-        return OneLinearCGPNet(self.net_params, cgp_layers, nn_layers)
+
+        last_nn_layer = self.last_nn_layer.clone()
+        return LinearOutputCGPNet(self.net_params, cgp_layers, nn_layers, last_nn_layer)
 
 
-class DoubleLinearCGPNet(BaseCGPNet):
-    def __init__(self, net_params, cgp_layers=None, matrix_layers=None, vector_layers=None, add_bias=False, clas_cgp=OneExpOneOutCGPLayer):
-        super(DoubleLinearCGPNet, self).__init__(net_params, cgp_layers, clas_cgp=clas_cgp)
-
-        self.add_bias = add_bias
-
-        self.nn_layers = []
-        if matrix_layers and vector_layers:
-            self.matrix_layers = matrix_layers
-            self.vector_layers = vector_layers
-        else:
-            for i in range(1, self.n_layer):
-                self.matrix_layers.append(LinearLayer(self.neurons[i - 1], self.neurons[i], add_bias=self.add_bias))
-                self.vector_layers.append(LinearLayer(1, self.neurons[i], add_bias=self.add_bias))
-
-    def __call__(self, x):
-        layer_output = x
-        outputs = []
-        for m_layer, v_layer, cgp_layer in zip(self.matrix_layers, self.vector_layers, self.cgp_layers):
-            layer_output = v_layer(cgp_layer(m_layer(layer_output)))
-            outputs.append(layer_output)
-        return outputs
-
-    def get_ws(self):
-        m_list, v_list = [], []
-        for m_layer, v_layer in zip(self.matrix_layers, self.vector_layers):
-            m_list.append(m_layer.get_weight())
-            v_layer.append(v_layer.get_weight())
-        return m_list, v_list
-
-    def get_net_parameters(self):
-        parameters = []
-        for m_layer, v_layer in zip(self.matrix_layers, self.vector_layers):
-            parameters += list(m_layer.parameters()) + list(v_layer.parameters())
-        return parameters
-
-    @classmethod
-    def encode_net(cls,
-                   net_params: NetParameters,
-                   genes_list, ephs_list, w_list_turple, bias_list=None, clas_cgp=OneExpOneOutCGPLayer):
-        """class method that encode the net based on existing params"""
-        neurons = net_params.neurons
-        n_layers = len(neurons)
-
-        if len(genes_list) != len(ephs_list) != len(w_list_turple[0]) != len(w_list_turple[1]) and n_layers != len(genes_list) + 1:
-            raise ValueError('length of genes, ephs, W should all be equal to n_layer - 1!')
-
-        cgp_layers, m_layers, v_layers = [], [], []
-        for i in range(1, n_layers):
-            genes, ephs = genes_list[i - 1], torch.tensor(ephs_list[i - 1])
-            m_weight, v_weight = torch.tensor(w_list_turple[0][i - 1], w_list_turple[1][i-1])
-            bias = bias_list[i - 1] if bias_list else None
-
-            cgp_layers.append(_create_cgp_layer(clas_cgp, net_params, i, genes, ephs))
-            m_layers.append(LinearLayer(weight=m_weight))
-            v_layers.append(LinearLayer(weight=v_weight, bias=bias))
-
-        return cls(net_params, cgp_layers, m_layers, v_layers, clas_cgp=clas_cgp)
-
-    def generate_offspring(self, gidxs_list, mutant_genes_list):
-        cgp_layers, m_layers, v_layers = [], [], []
-        for m_layer, v_layer, cgp, gidxs, mutant_genes in zip(self.matrix_layers, self.vector_layers, self.cgp_layers, gidxs_list, mutant_genes_list):
-            cgp_layers.append(cgp.generate_offspring(gidxs, mutant_genes))
-            m_layers.append(m_layer.clone())
-            v_layers.append(v_layer.clone())
-        return DoubleLinearCGPNet(self.net_params, cgp_layers, m_layers, v_layers)
 
 
 

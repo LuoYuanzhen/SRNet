@@ -195,21 +195,21 @@ def get_latex_expression():
 
 if __name__ == '__main__':
     data_dir = '../dataset/'
-    filename = 'feynman4'
-    snap = 'F4'
+    filename = 'feynman3'
+    snap = 'F3'
 
-    json_file = f'../cgpnet_result/b_logs/{filename}_30log.json'
-    img_dir = f'../cgpnet_result/b_imgs/'
+    json_file = f'../cgpnet_result/lo_logs/{filename}_30log.json'
+    img_dir = f'../cgpnet_result/lo_imgs/'
     which = 'elite[0]'
 
     is_log = False
 
     # output_curves()
     # output_curves_interpolate()
-    # project_output_scatter()
-    # project_output_scatter_interpolate()
-    # hidden_heat_map()
-    get_latex_expression()
+    project_output_scatter()
+    project_output_scatter_interpolate()
+    hidden_heat_map()
+    # get_latex_expression()
 
 
 

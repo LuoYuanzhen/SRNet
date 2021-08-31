@@ -136,11 +136,12 @@ def timeout_simplify(expr):
 def pretty_net_exprs(net, var_names=None):
     """Forward funcs_list and w_list, get final expressions w.r.t var_names"""
     net_input = net.neurons[0]
+    if not var_names:
+        var_names = list([f'x{i}' for i in range(net_input)]) if net_input > 1 else ['x']
+
     if net.__class__.__name__ == 'OneVectorCGPNet':
         # h_i = f_i(h_{i-1}) * w
-        if not var_names:
-            var_names = list([f'x{i}' for i in range(net_input)]) if net_input > 1 else ['x']
-        exprs = var_names  # 1, n_var
+        exprs = var_names  # n_var, 1
         for linear, cgp in zip(net.nn_layers, net.cgp_layers):
             exprs = cgp.get_expressions(input_vars=exprs)
             bias = linear.get_bias()
@@ -148,12 +149,25 @@ def pretty_net_exprs(net, var_names=None):
                 exprs = sp.Matrix(exprs) * linear.get_weight()
             else:
                 exprs = sp.Matrix(exprs) * linear.get_weight() + bias.reshape(1, -1)
+    elif net.__class__.__name__ == 'LinearOutputCGPNet':
+        # last layer is linear, not wf+b
+        exprs = var_names  # n_var, 1
+        for linear, cgp in zip(net.nn_layers, net.cgp_layers):
+            exprs = cgp.get_expressions(input_vars=exprs)
+            bias = linear.get_bias()
+            if isinstance(bias, int):
+                exprs = sp.Matrix(exprs) * linear.get_weight()
+            else:
+                exprs = sp.Matrix(exprs) * linear.get_weight() + bias.reshape(1, -1)
+        bias = net.last_nn_layer.get_bias()
+        if isinstance(bias, int):
+            exprs = exprs * net.last_nn_layer.get_weight()
+        else:
+            exprs = exprs * net.last_nn_layer.get_weight() + bias.reshape(1, -1)
     else:
         # h_i = f_i(h_{i-1} * W)
         w_list = net.get_ws()
         funcs_list = net.get_cgp_expressions()
-        if not var_names:
-            var_names = list([f'x{i}' for i in range(w_list[0].shape[0])])
 
         expr = sp.Matrix(var_names).T  # 1, n_var
 
@@ -169,6 +183,15 @@ def pretty_net_exprs(net, var_names=None):
         exprs = sp.Matrix(exprs).T
 
     return exprs.tolist()
+
+
+def linear_layer_expression(n_input, w, b=None):
+    inputs = [f'x{i}' for i in range(n_input)] if n_input > 1 else ['x']
+    if b is not None:
+        expr = sp.Matrix(inputs).T * sp.Matrix(w) + b.reshape(1, -1)  # 1, n_var
+    else:
+        expr = sp.Matrix(inputs).T * sp.Matrix(w)
+    return expr.tolist()[0]
 
 
 def layer_expression(inputs, w, funcs):

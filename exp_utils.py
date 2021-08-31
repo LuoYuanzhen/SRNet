@@ -9,7 +9,7 @@ from torch import nn
 
 from CGPNet.config import clas_net_map, clas_cgp_map
 from CGPNet.params import NetParameters
-from CGPNet.utils import pretty_net_exprs
+from CGPNet.utils import pretty_net_exprs, linear_layer_expression
 from data_utils import draw, io
 from dataset_config import VALID_MAP, TEST_MAP, FUNC_MAP
 
@@ -281,10 +281,19 @@ def individual_to_dict(indiv, var_names=None):
         ws.append(linear.get_weight().numpy().tolist())
         if linear.add_bias:
             bias.append(linear.get_bias().numpy().tolist())
+    expressions = indiv.get_cgp_expressions()
+    if indiv.__class__.__name__ == 'LinearOutputCGPNet':
+        last_nn = indiv.last_nn_layer
+        ws.append(last_nn.get_weight().numpy().tolist())
+        if last_nn.add_bias:
+            bias.append(last_nn.get_bias().numpy().tolist())
+            expressions.append(linear_layer_expression(indiv.neurons[-2], last_nn.get_weight(), last_nn.get_bias()))
+        else:
+            expressions.append(linear_layer_expression(indiv.neurons[-2], last_nn.get_weight()))
 
     indiv_dict = {'final_expression': str(end_exp),
                   'fitness': (indiv.fitness, indiv.fitness_list),
-                  'expressions': str(indiv.get_cgp_expressions()),
+                  'expressions': str(expressions),
                   'weights': ws,
                   'bias': bias,
                   'constants': cgp_ephs,

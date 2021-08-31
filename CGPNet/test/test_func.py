@@ -2,6 +2,7 @@ import sympy as sp
 import torch
 
 from CGPNet.functions import function_map
+from CGPNet.utils import linear_layer_expression
 
 
 def test_function():
@@ -23,12 +24,11 @@ def test_function():
 
 
 def test_sp():
-    vars = [sp.Symbol('x0'), 1.2]
-    # variable = sp.Matrix(vars).T
-    # print(variable)
-    exp = vars[0] * 2 + 1
-    print(exp)
-    print(exp.subs(sp.Symbol('x0'), [[1, 2, 3]]))
+    inputs = ['x0', 'x1']
+    w = torch.tensor([[1.], [2.]])
+    b = torch.tensor([3.])
+
+    print(linear_layer_expression(2, w, b))
 
 
 if __name__ == '__main__':

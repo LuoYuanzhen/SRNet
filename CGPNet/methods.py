@@ -62,59 +62,6 @@ class SGDTrainer(OptimTrainer):
         return l_trend
 
 
-class PSOTrainer(OptimTrainer):
-    """Bug: when _pso_loss return all inf"""
-    def __init__(self, n_epoch, end_to_end, l_func=nn.MSELoss(), c1=0.5, c2=0.3, w=0.9, n_particles=100):
-        super(PSOTrainer, self).__init__(n_epoch, end_to_end, l_func)
-        self.options = {'c1': c1, 'c2': c2, 'w': w}
-        self.n_particles = n_particles
-        self.param_shapes = []
-
-    def _particle_to_parameters(self, particle):
-        """particle.shape: (n_dimension), n_dimension = mul(*param[0].shape) + mul(*param[1].shape)..."""
-        begin, parameters = 0, []
-        for shape in self.param_shapes:
-            length = shape[0] * shape[1]
-            parameters.append(particle[begin:begin+length].reshape(shape))
-            begin += length
-        return parameters
-
-    def _pso_loss(self, net, data_list, particles):
-        """where x's shape: (n_praticle, n_dimension)"""
-        n_particle, loss = particles.shape[0], []
-        for i in range(n_particle):
-            net_parameters = self._particle_to_parameters(particles[i])
-            net.set_ws(net_parameters)
-            net_predictions = net(data_list[0])
-            if self.end_to_end:
-                protected_loss = self.l_func(net_predictions[-1], data_list[-1])
-                if torch.isnan(protected_loss):
-                    protected_loss = torch.tensor(float('inf'))
-                loss.append(protected_loss.item())
-
-        return np.array(loss)
-
-    def train(self, net, data_list):
-
-        parameters = net.get_ws()
-        particle_dimension = 0
-        self.param_shapes = []
-
-        for parameter in parameters:
-            particle_dimension += parameter.shape[0] * parameter.shape[1]
-            self.param_shapes.append((parameter.shape[0], parameter.shape[1]))
-
-        self.optimizer = ps.single.GlobalBestPSO(n_particles=self.n_particles, dimensions=particle_dimension, options=self.options)
-
-        f = partial(self._pso_loss, net, data_list)
-        cost, pos = self.optimizer.optimize(f, iters=self.n_epoch)
-
-        net_parameters = self._particle_to_parameters(pos)
-        net.set_ws(net_parameters)
-
-        return cost
-
-
 class LBFGSTrainer(OptimTrainer):
 
     def train(self, net, data_list):
@@ -169,7 +116,10 @@ class NewtonTrainer(OptimTrainer):
         for param in nn_layer.parameters():
             gradient, hessian_inv = self._get_inverse_hessian(loss, param)
             if hessian_inv is not None:
-                param.data = param.data - torch.matmul(gradient, hessian_inv)
+                if len(gradient.shape) == 2 and gradient.shape[1] != hessian_inv.shape[0]:
+                    param.data = param.data - torch.matmul(hessian_inv, gradient)
+                else:
+                    param.data = param.data - torch.matmul(gradient, hessian_inv)
             if param.grad is not None:
                 param.grad.data.zero_()
 
@@ -282,7 +232,7 @@ class Evolution:
                 indiv.fitness_list.append(loss)
             indiv.fitness = self._calculate_weighted_fitness(indiv.fitness_list)
 
-    def _apply_evolution_strategy(self, population, trainer, data_list, valid_data_list, last_parent=None):
+    def _apply_evolution_strategy(self, population, trainer, data_list, valid_data_list):
         parent = None
         if self.evo_strategy == 'fitness_select':
             for indiv in population:
@@ -299,26 +249,20 @@ class Evolution:
             else:
                 valid_input = newton_input
 
-            part_of_parent = False
-            if last_parent:
-                # there is an old parent and assume the 'super' individual consist of all the chromosomes from old parent
-                part_of_parent = True
-                population = [last_parent] + population
-
             # Training each chromosome one by one, and select a best parent.
             for chrom_idx in range(num_chrom):
-                # for each chromosome, apply Newton method repectively.
+                # for each chromosome, apply Newton method.
                 chrom_losses = []
                 for i, indiv in enumerate(population):
                     chrom_cgp, chrom_linear = indiv.cgp_layers[chrom_idx], indiv.nn_layers[chrom_idx]
-
-                    if not part_of_parent or i != 0:
-                        #  when the indiv is last parent and the 'super' individual still consist of all
-                        #  parts from old parent, we don't apply newton.
-                        trainer.apply_optim(chrom_linear(chrom_cgp(newton_input)), data_list[chrom_idx+1], chrom_linear)
-
+                    # training with training set
+                    trainer.apply_optim(chrom_linear(chrom_cgp(newton_input)), data_list[chrom_idx+1], chrom_linear)
+                    # choose from validation set
                     his = chrom_linear(chrom_cgp(valid_input))
-                    hi = torch.vstack((data_list[chrom_idx+1], valid_data_list[chrom_idx+1]))
+                    if valid_data_list is not None:
+                        hi = torch.vstack((data_list[chrom_idx+1], valid_data_list[chrom_idx+1]))
+                    else:
+                        hi = data_list[chrom_idx+1]
                     chrom_losses.append(self._get_protected_loss(his, hi))
                 # choose the best chromosome from all (chrom_idx)th chromosomes of all individuals.
                 best_idx = np.argmin(chrom_losses)
@@ -332,14 +276,32 @@ class Evolution:
                 newton_input = best_linear(best_cgp(newton_input))
                 valid_input = best_linear(best_cgp(valid_input))
 
-                if part_of_parent and best_idx != 0:
-                    # the 'super' not long consist of all the parts of last parent
-                    part_of_parent = False
+            last_nn_layer = None
+            if len(population[0].cgp_layers) < len(population[0].neurons)-1:
+                # construct last linear layer
+                chrom_losses = []
+                for i, indiv in enumerate(population):
+                    chrom = indiv.last_nn_layer
+                    # with torch.no_grad():
+                    #     pre_loss = torch.nn.MSELoss()(data_list[-1], chrom(newton_input))
+                    trainer.apply_optim(chrom(newton_input), data_list[-1], chrom)
+                    # with torch.no_grad():
+                    #     alfter_loss = torch.nn.MSELoss()(data_list[-1], chrom(newton_input))
+                    # print(f'Previous loss: {pre_loss.item()}; After loss: {alfter_loss.item()}')
+                    his = chrom(valid_input)
+                    if valid_data_list is not None:
+                        hi = torch.vstack((data_list[-1], valid_data_list[-1]))
+                    else:
+                        hi = data_list[-1]
+                    chrom_losses.append(self._get_protected_loss(his, hi))
+                last_nn_layer = population[np.argmin(chrom_losses)].last_nn_layer
 
             # choose any individual in the population would be ok, since its layers would be replaced in the end.
             parent = population[0]
             # simpily replace its layers and fitness
             parent.cgp_layers, parent.nn_layers = cgp_layers, nn_layers
+            if last_nn_layer is not None:
+                parent.last_nn_layer = last_nn_layer
             # finally, evaluate its fitness.
             self._evaluate_fitness([parent], data_list, valid_data_list)
 
@@ -421,8 +383,8 @@ class Evolution:
             if not parent:
                 parent = self._apply_evolution_strategy(population, trainer, data_list, valid_data_list)
             else:
-                last_parent = parent.clone()
-                new_parent = self._apply_evolution_strategy(population[1:], trainer, data_list, valid_data_list, last_parent)
+                new_parent = self._apply_evolution_strategy(population[1:], trainer, data_list, valid_data_list)
+                # print(f'parent.fitness:{parent.fitness}; new.fitness:{new_parent.fitness}')
                 parent = new_parent if new_parent.fitness < parent.fitness else parent
 
             conv_f.append(parent.fitness)

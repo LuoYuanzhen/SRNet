@@ -156,13 +156,13 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
 if __name__ == '__main__':
 
     data_dir, xlabel = 'dataset/', 'F'
-    log_dir, img_dir = 'cgpnet_result/b_logs/', 'cgpnet_result/b_imgs/'
+    log_dir, img_dir = 'cgpnet_result/lo_logs/', 'cgpnet_result/lo_imgs/'
 
     io.mkdir(log_dir)
     io.mkdir(img_dir)
 
     evo_params = {
-        'clas_net': 'OneVectorCGPNet',  # do not change
+        'clas_net': 'LinearOutputCGPNet',  # do not change
         'clas_cgp': 'OneExpOneOutCGPLayer',  # do not change
         'optim': 'Newton',  # do not change
         'n_rows': 5,
@@ -173,9 +173,9 @@ if __name__ == '__main__':
         'add_bias': True,  # do not change
 
         'n_population': 200,
-        'n_generation': 100,
+        'n_generation': 5000,
         'prob': 0.4,
-        'verbose': 10,
+        'verbose': 1,
         'stop_fitness': 1e-5,
         'random_state': None,
         'n_jobs': 1,
@@ -188,7 +188,8 @@ if __name__ == '__main__':
 
     all_names = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk4', 'kkk5',
                  'feynman0', 'feynman1', 'feynman2', 'feynman3', 'feynman4', 'feynman5']
-    run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel, run_n_epoch=30)
+    # all_names = ['feynman3']
+    run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel, run_n_epoch=1)
 
 
 
