@@ -5,7 +5,6 @@ from functools import partial
 
 import numpy as np
 import torch.optim
-import pyswarms as ps
 from joblib import Parallel, delayed
 from torch import nn
 from torch.autograd import Variable
@@ -161,30 +160,31 @@ evolution_strategy = ['fitness_select', 'chromosome_select']
 
 class Evolution:
     def __init__(self,
+                 evo_params,
                  clas_net,
-                 clas_cgp,
-                 n_rows=5,
-                 n_cols=5,
-                 levels_back=None,
-                 function_set=default_functions,
-                 n_eph=1,
-                 add_bias=False
+                 clas_cgp
                  ):
-        self.neurons = None
-        self.n_rows = n_rows
-        self.n_cols = n_cols
-        self.levels_back = levels_back
-        if levels_back is None:
-            self.levels_back = self.n_cols * self.n_rows + 1
-
-        self.function_set = function_set
-        self.n_eph = n_eph
-        self.add_bias = add_bias
-
+        self.evo_params = evo_params
         self.clas_net = clas_net
         self.clas_cgp = clas_cgp
 
-        self.evo_strategy = None
+        self.neurons = None
+        self.n_rows = evo_params['n_rows']
+        self.n_cols = evo_params['n_cols']
+        self.levels_back = evo_params['levels_back']
+
+        if self.levels_back is None:
+            self.levels_back = self.n_cols * self.n_rows + 1
+
+        self.function_set = evo_params['function_set']
+        self.n_eph = evo_params['n_eph']
+        self.add_bias = evo_params['add_bias']
+
+        self.evo_strategy = evo_params['evolution_strategy']
+        if self.evo_strategy is None:
+            self.evo_strategy = 'fitness_select'
+        elif self.evo_strategy not in evolution_strategy:
+            raise ValueError(f"Not evolution strategy name is {self.evo_strategy}.")
 
     def _set_parameters(self):
         self.net_parameters = NetParameters(neurons=self.neurons,
@@ -310,13 +310,9 @@ class Evolution:
     def start(self,
               data_list,
               trainer,
-              n_pop=200, n_gen=5000, prob=0.4, stop_fitness=1e-5,
-              verbose=0, n_jobs=1,
-              random_state=None,
-              evo_strategy=None,
-              valid_data_list=None):
+              valid_data_list=None
+              ):
         self.neurons = [data.shape[1] for data in data_list]
-        self.evo_strategy = evo_strategy
 
         if len(data_list) != len(self.neurons):
             raise ValueError(f"Data_list's length {len(data_list)} != neurons' length {len(self.neurons)}")
@@ -324,22 +320,17 @@ class Evolution:
             if data.shape[1] != n_neuron:
                 raise ValueError(f"Shape[1] of data in data_list {data.shape[1]} != n_neuron {n_neuron}")
 
-        if self.evo_strategy is None:
-            self.evo_strategy = 'fitness_select'
-        elif self.evo_strategy not in evolution_strategy:
-            raise ValueError(f"Not evolution strategy name is {evo_strategy}.")
+        self._set_parameters()
 
-        if n_jobs <= 0:
-            raise ValueError('Parameter n_jobs should bigger than 0')
-        if n_jobs > 1:
-            idx_starts = [0] + partition_n_jobs(n_jobs, n_pop)
-        else:
-            idx_starts = None
+        random_state = self.evo_params['random_state']
+        n_pop = self.evo_params['n_population']
+        verbose = self.evo_params['verbose']
+        n_gen = self.evo_params['n_generation']
+        prob = self.evo_params['prob']
+        stop_fitness = self.evo_params['stop_fitness']
 
         if random_state:
             random.seed(random_state)
-
-        self._set_parameters()
 
         conv_f, population, history_elites = [], None, []
         parent, gen = None, 0
@@ -356,30 +347,6 @@ class Evolution:
                              [probabilistic_mutate_net(parent, prob)
                               for _ in range(n_pop - 1)]
 
-            # optimization method
-            # if idx_starts:
-            #     # if n_jobs > 1, do the optimze parallelly
-            #     population = Parallel(n_jobs=n_jobs)(
-            #         delayed(parallel_optimize)(population[idx_starts[i]:idx_starts[i + 1]],
-            #                                    data_list,
-            #                                    trainer
-            #                                    )
-            #         for i in range(n_jobs))
-            #     population = list(itertools.chain.from_iterable(population))
-            # else:
-            #     if not parent:
-            #         # first generation, apply optimize on all the individuals.
-            #         for indiv in population:
-            #             trainer.train(net=indiv, data_list=data_list)
-            #     else:
-            #         # I do not apply optimze on the the parent.
-            #         for indiv in population[1:]:
-            #             trainer.train(net=indiv, data_list=data_list)
-
-            # # evaluate fitness
-            # self._evaluate_fitness(population, data_list, extra_data_list)
-
-            # select parent with evolution strategy
             if not parent:
                 parent = self._apply_evolution_strategy(population, trainer, data_list, valid_data_list)
             else:

@@ -62,6 +62,12 @@ def jackson2_11(q, y, Volt, d, ep):
     return q / (temp * y ** 2) * (temp * Volt * d - q * d * y ** 3 / (y ** 2 - d ** 2) ** 2)
 
 
+# the dataset that could draw as curve
+CURVES_DATASET = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk5']
+
+# the dataset that should draw with log(output)
+LOG_RESULT_DATASET = ['kkk4', 'feynman1', 'feynman2', 'feynman4', 'feynman5']
+
 FUNC_MAP = {
     'kkk0': kkk0_koza_sin,
     'kkk1': kkk1_koza_sincos,

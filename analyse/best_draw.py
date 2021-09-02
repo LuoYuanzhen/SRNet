@@ -1,24 +1,31 @@
-import numpy as np
 import torch
-from lime import lime_tabular
 
 from CGPNet.utils import pretty_net_exprs
-from dataset_config import FUNC_MAP, INTER_MAP, TEST_MAP, vars_map
+from dataset_config import FUNC_MAP, INTER_MAP, TEST_MAP, vars_map, CURVES_DATASET
 from data_utils import io
 from exp_utils import encode_individual_from_json, draw_hidden_heat_compare_img, draw_decision_bound, \
     draw_output_compare_curves, draw_project_output_scatter
 from neural_networks.nn_models import NN_MAP
 
 
+# where is training data
+data_dir = '../dataset/'
+filename = 'kkk0'
+# title name
+snap = 'K0'
+
+# where is the result json file
+json_file = f'../cgpnet_result/b_logs/{filename}_30log.json'
+# the figures saving directory
+img_dir = f'../cgpnet_result/b_imgs/'
+# which elite in json_file you want to pick to draw
+which = 'elite[0]'
+
+is_log = False
+
+
 def _protected_log(output):
     return torch.log(torch.abs(output))
-
-
-def lime_maple_predict(x, coefs):
-    x = x.numpy()
-    pred = np.dot(np.insert(x, 0, 1), coefs)
-
-    return torch.from_numpy(pred).reshape(-1, 1)
 
 
 def hidden_heat_map():
@@ -193,23 +200,22 @@ def get_latex_expression():
         print(strs)
 
 
-if __name__ == '__main__':
-    data_dir = '../dataset/'
-    filename = 'feynman3'
-    snap = 'F3'
-
-    json_file = f'../cgpnet_result/lo_logs/{filename}_30log.json'
-    img_dir = f'../cgpnet_result/lo_imgs/'
-    which = 'elite[0]'
-
-    is_log = False
-
-    # output_curves()
-    # output_curves_interpolate()
+# draw extrapolation for MLP, SRNet
+if filename in CURVES_DATASET:
+    output_curves()
+    output_curves_interpolate()
+else:
     project_output_scatter()
     project_output_scatter_interpolate()
-    hidden_heat_map()
-    # get_latex_expression()
+
+hidden_heat_map()
+
+# output_curves()
+# output_curves_interpolate()
+# project_output_scatter()
+# project_output_scatter_interpolate()
+# hidden_heat_map()
+# get_latex_expression()
 
 
 

@@ -9,7 +9,7 @@ from lime import lime_tabular
 
 import exp_utils
 from data_utils import io
-from dataset_config import TEST_MAP, VALID_MAP, FUNC_MAP, INTER_MAP
+from dataset_config import TEST_MAP, VALID_MAP, FUNC_MAP, INTER_MAP, CURVES_DATASET
 from exp_utils import encode_individual_from_json
 from maple.MAPLE import MAPLE
 from maple.Misc import unpack_coefs
@@ -53,7 +53,7 @@ def run_compare(dataset):
 
     # Outpt
     out = {}
-    file = open("Compare_result/" + dataset + ".json", "w")
+    file = open("compare_result/" + dataset + ".json", "w")
 
     # Load data
     train = io.get_dataset('dataset/' + dataset).numpy()
@@ -155,25 +155,25 @@ def run_compare(dataset):
             ys[i] = _protected_log(ys[i])
     labels = ['True', 'MLP', 'SRNet', 'LIME', 'MAPLE']
 
-    if dataset in single:
-        exp_utils.draw_output_compare_curves(X_test[:, 0], ys, labels, n_var=n_var, savepath=f"Compare_result/{dataset}.pdf", inter_range=INTER_MAP[dataset][0])
+    if dataset in CURVES_DATASET:
+        exp_utils.draw_output_compare_curves(X_test[:, 0], ys, labels, n_var=n_var, savepath=f"compare_result/{dataset}.pdf", inter_range=INTER_MAP[dataset][0])
     else:
-        exp_utils.draw_project_output_scatter(X_test, ys, labels, savepath=f"Compare_result/{dataset}.pdf", inter_ranges=INTER_MAP[dataset])
+        exp_utils.draw_project_output_scatter(X_test, ys, labels, savepath=f"compare_result/{dataset}.pdf", inter_ranges=INTER_MAP[dataset])
 
 
 # io.mkdir('Compare_result/')
 # for dataset in datasets:
 #     run_compare(dataset)
 
-with open(f'Compare_result/{datasets[0]}.json', 'r') as f:
+with open(f'compare_result/{datasets[0]}.json', 'r') as f:
     data = json.load(f)
 
 columns = list(data.keys())
 df = pd.DataFrame(0, index=datasets, columns=columns)
 for dataset in datasets:
-    with open(f'Compare_result/{dataset}.json', 'r') as f:
+    with open(f'compare_result/{dataset}.json', 'r') as f:
         data = json.load(f)
     for name in columns:
         df.loc[dataset, name] = data[name]
 
-df.to_csv('Compare_result/result.csv')
+df.to_csv('compare_result/result.csv')

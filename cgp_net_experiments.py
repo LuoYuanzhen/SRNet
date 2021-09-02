@@ -10,24 +10,56 @@ from CGPNet.config import clas_net_map, clas_cgp_map, clas_optim_map
 from CGPNet.functions import default_functions
 from CGPNet.methods import Evolution
 from data_utils import io, draw
-from dataset_config import INTER_MAP, VALID_MAP, vars_map
+from dataset_config import VALID_MAP, vars_map
 from exp_utils import save_cfs, draw_f_trend, individual_to_dict, generate_domains_data
 from neural_networks.nn_models import NN_MAP
 
 
-def _train_process(controller, trainer, data_list, eps, msg, valid_data_list):
+# where is the dataset
+data_dir, xlabel = 'dataset/', 'F'
+# what logs and imgs directory you want to save the result
+log_dir, img_dir = 'cgpnet_result/b_logs/', 'cgpnet_result/b_imgs/'
+
+io.mkdir(log_dir)
+io.mkdir(img_dir)
+
+# hyperparameters for srnet, not that some of them are useless, but for the result consistense do not change
+evo_params = {
+    'clas_net': 'OneVectorCGPNet',  # do not change
+    'clas_cgp': 'OneExpOneOutCGPLayer',  # do not change
+    'optim': 'Newton',  # Newton-Rapson optimization method do not change
+    'n_rows': 5,  # rows of function nodes in each CGP
+    'n_cols': 5,  # cols of function nodes in each CGP
+    'levels_back': None,
+    'function_set': default_functions,
+    'n_eph': 1,  # number of constant added in each CGP
+    'add_bias': True,  # do not change
+
+    'n_population': 200,  # population size in each generation
+    'n_generation': 5000,  # number of evoled generation
+    'prob': 0.4,  # point mutation prob
+    'verbose': 10,  # 0 would not be reported
+    'stop_fitness': 1e-5,
+    'random_state': None,
+    'n_epoch': 0,  # useless, but do not delete
+    'end_to_end': False,  # do not change
+    'validation': True,  # do not change
+    'evolution_strategy': 'chromosome_select'  # do not change
+}
+
+# name of datasets
+all_names = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk4', 'kkk5',
+             'feynman0', 'feynman1', 'feynman2', 'feynman3', 'feynman4', 'feynman5']
+
+# how many times you want to run for each dataset
+run_times = 30
+
+
+def _train_process(controller, trainer, data_list, msg, valid_data_list):
     print(msg)
     start_time = datetime.datetime.now()
     elites, convf = controller.start(data_list=data_list,
                                      trainer=trainer,
-                                     n_pop=eps['n_population'],
-                                     n_gen=eps['n_generation'],
-                                     prob=eps['prob'],
-                                     verbose=eps['verbose'],
-                                     n_jobs=eps['n_jobs'],
-                                     stop_fitness=eps['stop_fitness'],
-                                     random_state=eps['random_state'],
-                                     evo_strategy=eps['evolution_strategy'],
                                      valid_data_list=valid_data_list
                                      )
     end_time = datetime.datetime.now()
@@ -35,70 +67,8 @@ def _train_process(controller, trainer, data_list, eps, msg, valid_data_list):
     return elites, convf, (end_time - start_time).seconds / 60
 
 
-def run_a_dataset(trainer, evo_params, data_list, run_n_epoch, fname, valid_data_list=None, log_dir=None, img_dir=None, msg=''):
-    clas_net, clas_cgp = clas_net_map[evo_params['clas_net']], clas_cgp_map[evo_params['clas_cgp']]
-    var_names = vars_map[fname][0] if fname in vars_map else None
-    controller = Evolution(n_rows=evo_params['n_rows'],
-                           n_cols=evo_params['n_cols'],
-                           levels_back=evo_params['levels_back'],
-                           function_set=evo_params['function_set'],
-                           n_eph=evo_params['n_eph'],
-                           clas_net=clas_net,
-                           clas_cgp=clas_cgp,
-                           add_bias=evo_params['add_bias'])
-
-    results = Parallel(n_jobs=run_n_epoch)(
-        delayed(_train_process)(controller,
-                                trainer,
-                                data_list,
-                                evo_params,
-                                f'{fname}-{msg}-{epoch} start:\n',
-                                valid_data_list
-                                )
-        for epoch in range(run_n_epoch))
-
-    fs, ts = [], []  # for log
-    cfs = []  # for trend draw
-    elites = []  # All top10 best elites from each runtimes. For log
-    for result in results:
-        process_elites, convf, time = result
-        fs.append(process_elites[0].fitness)
-        ts.append(time)
-        cfs.append(convf)
-        elites += process_elites[:min(10, len(process_elites))]
-
-    elites.sort(key=lambda x: x.fitness)
-
-    if log_dir:
-        log_dict = {'name': fname,
-                    'evolution_parameters': evo_params,
-                    'neurons': list([data.shape[1] for data in data_list]),
-                    'mean_time': np.mean(ts),
-                    'mean_fitness': np.mean(fs),
-                    'min_fitness': np.min(fs),
-                    'max_fitness': np.max(fs),
-                    'fitness': fs
-                    }
-
-        elite_results = Parallel(n_jobs=joblib.cpu_count())(
-            delayed(individual_to_dict)(elite, var_names)
-            for elite in elites)
-
-        for num, result in enumerate(elite_results):
-            log_dict[f'elite[{num}]'] = result
-
-        with open(f'{log_dir}{fname}_30log.json', 'w') as f:
-            json.dump(log_dict, f, indent=4)
-
-        save_cfs(f'{log_dir}{fname}_30cfs', cfs)
-
-    if img_dir:
-        draw_f_trend(f'{img_dir}{fname}_trend.pdf', evo_params['n_generation'], [cfs], legends=['srnn'], title=fname)
-
-    return cfs, fs, ts, elites
-
-
-def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel=None, run_n_epoch=30):
+def run_all_experiments(evo_params, all_names, data_dir, log_dir, img_dir, xlabel=None, run_n_epoch=30):
+    trainer = clas_optim_map[evo_params['optim']](end_to_end=evo_params['end_to_end'])
     srnn_fs_list = []
     for fname in all_names:
         var_names = vars_map[fname][0] if fname in vars_map else None
@@ -117,12 +87,30 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
 
             valid_data_list = [valid_input] + list(nn(valid_input))
 
-        srnn_cfs, srnn_fs, srnn_ts, srnn_elites = run_a_dataset(trainer,
-                                                                evo_params,
-                                                                nn_data_list,
-                                                                run_n_epoch,
-                                                                fname,
-                                                                valid_data_list=valid_data_list)
+        clas_net, clas_cgp = clas_net_map[evo_params['clas_net']], clas_cgp_map[evo_params['clas_cgp']]
+        controller = Evolution(evo_params=evo_params,
+                               clas_net=clas_net,
+                               clas_cgp=clas_cgp)
+        results = Parallel(n_jobs=run_n_epoch)(
+            delayed(_train_process)(controller,
+                                    trainer,
+                                    nn_data_list,
+                                    f'{fname}-{epoch} start:\n',
+                                    valid_data_list
+                                    )
+            for epoch in range(run_n_epoch))
+
+        srnn_fs, srnn_ts = [], []  # for log
+        srnn_cfs = []  # for trend draw
+        elites = []  # All top10 best elites from each runtimes. For log
+        for result in results:
+            process_elites, convf, time = result
+            srnn_fs.append(process_elites[0].fitness)
+            srnn_ts.append(time)
+            srnn_cfs.append(convf)
+            elites += process_elites[:min(10, len(process_elites))]
+
+        elites.sort(key=lambda x: x.fitness)
 
         srnn_fs_list.append(srnn_fs)
 
@@ -139,7 +127,7 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
 
         elite_results = Parallel(n_jobs=joblib.cpu_count())(
             delayed(individual_to_dict)(elite, var_names)
-            for elite in srnn_elites)
+            for elite in elites)
 
         for num, result in enumerate(elite_results):
             log_dict[f'elite[{num}]'] = result
@@ -153,43 +141,7 @@ def run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_d
     draw.draw_fitness_box(f'{img_dir}{xlabel}_box_fit.pdf', srnn_fs_list, xlabel=xlabel)
 
 
-if __name__ == '__main__':
-
-    data_dir, xlabel = 'dataset/', 'F'
-    log_dir, img_dir = 'cgpnet_result/lo_logs/', 'cgpnet_result/lo_imgs/'
-
-    io.mkdir(log_dir)
-    io.mkdir(img_dir)
-
-    evo_params = {
-        'clas_net': 'LinearOutputCGPNet',  # do not change
-        'clas_cgp': 'OneExpOneOutCGPLayer',  # do not change
-        'optim': 'Newton',  # do not change
-        'n_rows': 5,
-        'n_cols': 5,
-        'levels_back': None,
-        'function_set': default_functions,
-        'n_eph': 1,
-        'add_bias': True,  # do not change
-
-        'n_population': 200,
-        'n_generation': 5000,
-        'prob': 0.4,
-        'verbose': 1,
-        'stop_fitness': 1e-5,
-        'random_state': None,
-        'n_jobs': 1,
-        'n_epoch': 0,  # useless, but do not delete
-        'end_to_end': False,  # do not change
-        'validation': True,  # do not change
-        'evolution_strategy': 'chromosome_select'  # do not change
-    }
-    trainer = clas_optim_map[evo_params['optim']](end_to_end=evo_params['end_to_end'])
-
-    all_names = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk4', 'kkk5',
-                 'feynman0', 'feynman1', 'feynman2', 'feynman3', 'feynman4', 'feynman5']
-    # all_names = ['feynman3']
-    run_all_experiments(trainer, evo_params, all_names, data_dir, log_dir, img_dir, xlabel, run_n_epoch=1)
+run_all_experiments(evo_params, all_names, data_dir, log_dir, img_dir, xlabel, run_n_epoch=run_times)
 
 
 
