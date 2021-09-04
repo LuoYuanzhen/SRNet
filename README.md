@@ -15,9 +15,13 @@ of SRNet in interpoaltion/extrapolation domain, the heat map of comparition of o
 
 For example, the fitting curves (or distribution points) of SRNet in interpolation/extrapolation domain of K0:
 ![The fitting curves of SRNet in extrapolation domain of K0](https://github.com/LuoYuanzhen/SRNet/blob/master/IMG/kkk0_curves_elite%5B0%5D.png)
-The heat map of comparition of outputs of SRNet layer vs the NN layer:
+
+The comparition heat map of outputs of SRNet layer vs the NN layer of K0:
+![The comparition heat map of outputs of SRNet layer vs the NN layer of K0](https://github.com/LuoYuanzhen/SRNet/blob/master/IMG/kkk0_elite%5B0%5D_0.png)
+
+![The comparition heat map of outputs of SRNet layer vs the NN layer of K0](https://github.com/LuoYuanzhen/SRNet/blob/master/IMG/kkk0_elite%5B0%5D_1.png)
 
 ### Compare to LIME and MAPLE on Extrapolation Domain
 Simply run compare_experimetns.py to get the best individual SRNet in 30 times runing vs LIME vs MAPLE on the interpolation
 and extrapolation domain:
-
+![SRNet vs LIME vs MAPLE in extrapolation domain]
