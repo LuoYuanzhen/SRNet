@@ -7,6 +7,9 @@ Programming (MCCGP) to find mathmatical formulas $f_i(x)*w_i+b_i$ for each netwo
 Simply run cgp_net_experiments.py to run 12 benchmarks in 'dataset/' 30 times. The selected elites in all independent
 runs would be stored at cgpnet_result/ as json file; the convergence curve of fitness would be saved at
 cgpnet_result/ as pdf file.
+
+You may get the convergence curve of fitness of SRNet that run 30 times on each MLP:
+![The convergence curve of fitness](https://github.com/LuoYuanzhen/SRNet/blob/master/IMG/trend_result.png)
 ## Get experimental Figures
 After running the cgp_net_experiments.py, we can get all the experimental figures. 
 ### Interpolation/Extrapolation Curves/Points and Heat Map
@@ -16,7 +19,7 @@ of SRNet in interpoaltion/extrapolation domain, the heat map of comparition of o
 For example, the fitting curves (or distribution points) of SRNet in interpolation/extrapolation domain of K0:
 ![The fitting curves of SRNet in extrapolation domain of K0](https://github.com/LuoYuanzhen/SRNet/blob/master/IMG/kkk0_curves_elite%5B0%5D.png)
 
-The comparition heat map of outputs of SRNet layer vs the NN layer of K0:
+The comparition heat map of outputs of SRNet layer vs the NN layer of K0 (9 random instances):
 ![The comparition heat map of outputs of SRNet layer vs the NN layer of K0](https://github.com/LuoYuanzhen/SRNet/blob/master/IMG/kkk0_elite%5B0%5D_0.png)
 
 ![The comparition heat map of outputs of SRNet layer vs the NN layer of K0](https://github.com/LuoYuanzhen/SRNet/blob/master/IMG/kkk0_elite%5B0%5D_1.png)
