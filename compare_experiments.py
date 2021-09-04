@@ -19,7 +19,6 @@ from neural_networks.nn_models import NN_MAP
 datasets = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk4', 'kkk5',
             'feynman0', 'feynman1', 'feynman2', 'feynman3', 'feynman4', 'feynman5']
 
-single = ['kkk0', 'kkk1', 'kkk2', 'kkk3', 'kkk5']
 logs = ['kkk4', 'feynman1', 'feynman2', 'feynman4', 'feynman5']
 log = True
 
@@ -61,7 +60,7 @@ def run_compare(dataset):
 
     test_domains = TEST_MAP[dataset]
     valid_domains = VALID_MAP[dataset]
-    if dataset in single:
+    if dataset in CURVES_DATASET:
         X_test = load_linspace_data(n_var, test_domains[0])
     else:
         X_test = load_rand_data(test_domains)
@@ -161,9 +160,9 @@ def run_compare(dataset):
         exp_utils.draw_project_output_scatter(X_test, ys, labels, savepath=f"compare_result/{dataset}.pdf", inter_ranges=INTER_MAP[dataset])
 
 
-# io.mkdir('Compare_result/')
-# for dataset in datasets:
-#     run_compare(dataset)
+io.mkdir('compare_result/')
+for dataset in datasets:
+    run_compare(dataset)
 
 with open(f'compare_result/{datasets[0]}.json', 'r') as f:
     data = json.load(f)

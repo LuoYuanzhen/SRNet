@@ -67,7 +67,7 @@ def _train_process(controller, trainer, data_list, msg, valid_data_list):
     return elites, convf, (end_time - start_time).seconds / 60
 
 
-def run_all_experiments(evo_params, all_names, data_dir, log_dir, img_dir, xlabel=None, run_n_epoch=30):
+def run_srnet_experiments(evo_params, all_names, data_dir, log_dir, img_dir, xlabel=None, run_n_epoch=30):
     trainer = clas_optim_map[evo_params['optim']](end_to_end=evo_params['end_to_end'])
     srnn_fs_list = []
     for fname in all_names:
@@ -141,7 +141,7 @@ def run_all_experiments(evo_params, all_names, data_dir, log_dir, img_dir, xlabe
     draw.draw_fitness_box(f'{img_dir}{xlabel}_box_fit.pdf', srnn_fs_list, xlabel=xlabel)
 
 
-run_all_experiments(evo_params, all_names, data_dir, log_dir, img_dir, xlabel, run_n_epoch=run_times)
+run_srnet_experiments(evo_params, all_names, data_dir, log_dir, img_dir, xlabel, run_n_epoch=run_times)
 
 
 
