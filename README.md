@@ -24,4 +24,4 @@ The comparition heat map of outputs of SRNet layer vs the NN layer of K0:
 ### Compare to LIME and MAPLE on Extrapolation Domain
 Simply run compare_experimetns.py to get the best individual SRNet in 30 times runing vs LIME vs MAPLE on the interpolation
 and extrapolation domain:
-![SRNet vs LIME vs MAPLE in extrapolation domain]
+![SRNet vs LIME vs MAPLE in extrapolation domain](https://github.com/LuoYuanzhen/SRNet/blob/master/IMG/extrapolation.png)
