@@ -13,8 +13,8 @@ After running the cgp_net_experiments.py, we can get all the experimental figure
 Simply run analyse/best_draw.py to get the experiment figures, including the fitting curves (or distribution points)
 of SRNet in interpoaltion/extrapolation domain, the heat map of comparition of outputs of SRNet layer vs the NN layer.
 
-The fitting curves (or distribution points) of SRNet in interpolation/extrapolation domain:
-
+For example, the fitting curves (or distribution points) of SRNet in interpolation/extrapolation domain of K0:
+![The fitting curves of SRNet in extrapolation domain of K0](./cgpnet_result/b_imgs/kkk0_curves_elite[0].pdf)
 The heat map of comparition of outputs of SRNet layer vs the NN layer:
 
 ### Compare to LIME and MAPLE on Extrapolation Domain
